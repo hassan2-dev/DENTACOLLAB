@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Button, Input, Select } from '@dentacollab/ui';
+import { Input, Select } from '@dentacollab/ui';
 import { API_URL, api, getToken } from '../lib/api';
 import { useAdminPreferences } from '../components/AdminLayout';
+import { Button } from '../components/ui/button';
 import { notify } from '../lib/toast';
 
 type Registration = {
