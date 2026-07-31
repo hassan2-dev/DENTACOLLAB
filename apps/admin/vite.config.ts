@@ -3,9 +3,9 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: mode === 'production' ? '/admin/' : '/',
+  base: '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -14,4 +14,4 @@ export default defineConfig(({ mode }) => ({
     },
   },
   server: { port: 5174 },
-}));
+});
