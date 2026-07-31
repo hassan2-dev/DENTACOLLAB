@@ -63,7 +63,7 @@ export function SiteLayout() {
   }, [menuOpen]);
 
   return (
-    <div className="flex min-h-screen flex-col overflow-x-hidden bg-[#f7fafc] transition-colors duration-300 dark:bg-[#040b18]">
+    <div className="flex min-h-dvh flex-col overflow-x-clip bg-[#f7fafc] transition-colors duration-300 dark:bg-[#040b18]">
       <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl transition-colors dark:border-white/10 dark:bg-[#050d1d]/90">
         <div className="dc-container flex h-[70px] items-center justify-between gap-2 sm:h-[78px] sm:gap-5">
           <Link to="/" className="dc-brand-lockup min-w-0 shrink" aria-label={general.siteName || 'DentaCollab'}>
@@ -144,11 +144,11 @@ export function SiteLayout() {
           <Outlet />
         </PageTransition>
       </main>
-      <footer className="relative overflow-hidden bg-[#0b152b] text-white">
-        <div className="pointer-events-none absolute -start-24 top-0 h-72 w-72 rounded-full bg-[#1fb6d1]/10 blur-3xl" />
-        <div className="pointer-events-none absolute -end-16 bottom-0 h-64 w-64 rounded-full bg-[#1fb6d1]/[.07] blur-3xl" />
+      <footer className="relative z-10 mt-auto overflow-hidden bg-[#0b152b] text-white">
+        <div className="pointer-events-none absolute -start-24 top-0 h-56 w-56 rounded-full bg-[#1fb6d1]/10 blur-3xl sm:h-72 sm:w-72" />
+        <div className="pointer-events-none absolute -end-16 bottom-0 h-48 w-48 rounded-full bg-[#1fb6d1]/[.07] blur-3xl sm:h-64 sm:w-64" />
 
-        <div className="dc-container relative grid gap-10 py-12 sm:gap-12 sm:py-16 lg:grid-cols-[1.4fr_1fr_1fr]">
+        <div className="dc-container relative grid gap-8 py-10 sm:gap-12 sm:py-16 lg:grid-cols-[1.4fr_1fr_1fr]">
           <div>
             <Link to="/" className="inline-flex items-center gap-3" aria-label="DentaCollab">
               <span className="grid h-14 w-14 place-items-center overflow-hidden rounded-2xl border border-white/20 bg-white p-1.5 shadow-sm">
