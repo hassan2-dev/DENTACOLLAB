@@ -1,0 +1,25 @@
+# Nixpacks config for DentaCollab API (NestJS monorepo)
+# Use with Base Directory = / (repo root)
+
+[phases.setup]
+nixPkgs = ["openssl"]
+
+[phases.install]
+cmds = [
+  "corepack enable",
+  "corepack prepare pnpm@9.15.9 --activate",
+  "pnpm install --frozen-lockfile"
+]
+
+[phases.build]
+cmds = [
+  "pnpm --filter @dentacollab/api exec prisma generate",
+  "pnpm --filter @dentacollab/api build"
+]
+
+[start]
+cmd = "cd apps/api && npx prisma migrate deploy && node dist/main.js"
+
+[variables]
+NODE_ENV = "production"
+NIXPACKS_NODE_VERSION = "22"
