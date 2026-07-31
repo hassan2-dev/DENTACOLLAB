@@ -18,6 +18,10 @@ function IconClose({ className = '' }: { className?: string }) {
   );
 }
 
+
+
+
+
 function IconSend({ className = '', flip = false }: { className?: string; flip?: boolean }) {
   return (
     <svg
