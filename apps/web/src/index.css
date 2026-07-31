@@ -19,16 +19,16 @@ body {
   font-family: var(--font-body);
   background: #f7fafc;
   color: #101c38;
-  overflow-x: hidden;
-  overscroll-behavior-y: none;
+  overflow-x: clip;
+  overflow-y: auto;
   cursor: url("/cursor-tooth.svg") 10 4, auto;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 html {
-  overflow-x: hidden;
-  overscroll-behavior-y: none;
-  /* Match footer so mobile overscroll doesn't show empty light gap below */
+  overflow-x: clip;
+  overflow-y: auto;
+  height: auto;
   background: #0b152b;
 }
 

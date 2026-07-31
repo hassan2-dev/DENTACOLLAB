@@ -56,14 +56,19 @@ export function SiteLayout() {
   }, [location.pathname]);
 
   useEffect(() => {
-    document.body.style.overflow = menuOpen ? 'hidden' : '';
-    return () => {
-      document.body.style.overflow = '';
-    };
+    if (menuOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prev || '';
+      };
+    }
+    document.body.style.overflow = '';
+    return undefined;
   }, [menuOpen]);
 
   return (
-    <div className="flex min-h-dvh flex-col overflow-x-clip bg-[#f7fafc] transition-colors duration-300 dark:bg-[#040b18]">
+    <div className="flex min-h-dvh flex-col bg-[#f7fafc] transition-colors duration-300 dark:bg-[#040b18]">
       <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl transition-colors dark:border-white/10 dark:bg-[#050d1d]/90">
         <div className="dc-container flex h-[70px] items-center justify-between gap-2 sm:h-[78px] sm:gap-5">
           <Link to="/" className="dc-brand-lockup min-w-0 shrink" aria-label={general.siteName || 'DentaCollab'}>

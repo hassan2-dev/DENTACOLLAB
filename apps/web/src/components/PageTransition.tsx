@@ -82,7 +82,7 @@ export function PageTransition({ children }: PageTransitionProps) {
         {showCurtain ? (
           <motion.div
             key="page-curtain"
-            className="pointer-events-auto fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#f7fafc] dark:bg-[#040b18]"
+            className="pointer-events-none fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#f7fafc] dark:bg-[#040b18]"
             initial={{ y: '-100%' }}
             animate={{ y: phase === 'covering' ? '0%' : '-100%' }}
             exit={{ y: '-100%' }}
