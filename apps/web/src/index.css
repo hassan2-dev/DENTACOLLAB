@@ -1,0 +1,279 @@
+@import "tailwindcss";
+@import "../../../packages/ui/src/styles/tokens.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: "IBM Plex Sans Arabic", Inter, "Segoe UI", sans-serif;
+  --font-body: "IBM Plex Sans Arabic", Inter, "Segoe UI", sans-serif;
+  --color-brand: #1fb6d1;
+  --color-brand-dark: #101c38;
+  --color-brand-soft: #e8f9fc;
+  --color-accent: #1fb6d1;
+  --color-ink: #101c38;
+  --color-ink-muted: #5b6b86;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: #f7fafc;
+  color: #101c38;
+  overflow-x: hidden;
+  cursor: url("/cursor-tooth.svg") 10 4, auto;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+a,
+button,
+[role="button"],
+label[for],
+select,
+summary,
+.dc-primary-link,
+input[type="submit"],
+input[type="button"],
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: url("/cursor-tooth-pointer.svg") 10 4, pointer;
+}
+
+input,
+textarea {
+  cursor: text;
+}
+
+.dc-primary-link {
+  color: white !important;
+}
+
+.dc-hero-content {
+  margin-inline-end: auto;
+}
+
+html[dir="rtl"] .dc-hero-content {
+  text-align: start;
+}
+
+.dc-inline-divide > * {
+  border-inline-end: 1px solid #e2e8f0;
+}
+
+summary {
+  list-style: none;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+.dc-inline-divide-three > :nth-child(3n),
+.dc-inline-divide-four > :nth-child(2n) {
+  border-inline-end: 0;
+}
+
+html.dark .dc-inline-divide > * {
+  border-color: #172b48;
+}
+
+@media (min-width: 768px) {
+  .dc-inline-divide-four > * {
+    border-inline-end: 1px solid #e2e8f0;
+  }
+
+  .dc-inline-divide-four > :nth-child(4n) {
+    border-inline-end: 0;
+  }
+
+  html.dark .dc-inline-divide-four > * {
+    border-color: #172b48;
+  }
+}
+
+.dc-brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: #101c38;
+}
+
+.dc-logo-mark {
+  position: relative;
+  display: block;
+  width: 3.15rem;
+  height: 3.15rem;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+}
+
+.dc-logo-mark img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6.45rem;
+  max-width: none;
+  transform: translate(-50%, -49%);
+}
+
+.dc-wordmark {
+  display: flex;
+  flex-direction: column;
+  color: #101c38;
+  font-family: Inter, "Segoe UI", sans-serif;
+  font-size: 1.02rem;
+  font-weight: 400;
+  letter-spacing: 0.035em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.dc-wordmark strong {
+  display: inline;
+  color: #101c38;
+  font-weight: 850;
+}
+
+.dc-wordmark small {
+  margin-top: 0.38rem;
+  color: #73819a;
+  font-size: 0.52rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dc-brand-lockup-footer .dc-wordmark,
+.dc-brand-lockup-footer .dc-wordmark strong {
+  color: white;
+}
+
+.dc-brand-lockup-footer .dc-wordmark small {
+  color: #91a4bd;
+}
+
+.dc-hero-brand {
+  gap: 0.9rem;
+}
+
+.dc-hero-brand .dc-logo-mark {
+  width: 4.25rem;
+  height: 4.25rem;
+}
+
+.dc-hero-brand .dc-logo-mark img {
+  width: 8.75rem;
+}
+
+.dc-hero-brand .dc-wordmark {
+  font-size: 1.28rem;
+  letter-spacing: 0.055em;
+}
+
+.dc-hero-brand .dc-wordmark small {
+  margin-top: 0.48rem;
+  font-size: 0.58rem;
+}
+
+.dc-hero-logo-float {
+  position: absolute;
+  z-index: 2;
+  top: 1.1rem;
+  inset-inline-end: 1.1rem;
+  display: block;
+  width: 5.25rem;
+  height: 5.25rem;
+  overflow: hidden;
+  filter: drop-shadow(0 10px 14px rgb(4 11 24 / 28%));
+}
+
+.dc-hero-logo-float img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10.75rem;
+  max-width: none;
+  transform: translate(-50%, -49%);
+}
+
+html.dark .dc-wordmark,
+html.dark .dc-wordmark strong {
+  color: #eef7ff;
+}
+
+@media (max-width: 640px) {
+  .dc-logo-mark {
+    width: 2.55rem;
+    height: 2.55rem;
+  }
+
+  .dc-logo-mark img {
+    width: 5.2rem;
+  }
+
+  .dc-wordmark {
+    font-size: 0.82rem;
+  }
+
+  .dc-wordmark small {
+    display: none;
+  }
+
+  .dc-hero-brand {
+    gap: 0.65rem;
+  }
+
+  .dc-hero-brand .dc-logo-mark {
+    width: 3.1rem;
+    height: 3.1rem;
+  }
+
+  .dc-hero-brand .dc-logo-mark img {
+    width: 6.4rem;
+  }
+
+  .dc-hero-brand .dc-wordmark {
+    font-size: 1rem;
+  }
+
+  .dc-hero-logo-float {
+    width: 3.75rem;
+    height: 3.75rem;
+    top: 0.75rem;
+    inset-inline-end: 0.75rem;
+  }
+
+  .dc-hero-logo-float img {
+    width: 7.75rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .dc-container {
+    width: min(100% - 1.25rem, var(--container));
+  }
+}
+
+html.dark body {
+  background:
+    radial-gradient(circle at 60% -10%, rgb(31 182 209 / 12%), transparent 35%),
+    #040b18;
+  color: #e7f2ff;
+}
+
+html.dark {
+  --color-bg: #040b18;
+  --color-bg-elevated: #081426;
+  --color-surface: #071225;
+  --color-ink: #eef7ff;
+  --color-ink-muted: #91a4bd;
+  --color-brand: #1fb6d1;
+  --color-brand-dark: #7be7ff;
+  --color-brand-soft: #0b2850;
+  --color-accent: #42d7ff;
+  --color-accent-soft: #0a2940;
+  --color-border: #19314f;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 28%);
+  --shadow-md: 0 18px 50px rgb(0 0 0 / 32%);
+}

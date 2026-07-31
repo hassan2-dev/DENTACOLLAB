@@ -1,0 +1,527 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+}
+
+enum CourseLevel {
+  STUDENTS
+  BASIC
+  ADVANCED
+}
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum RegistrationStatus {
+  NEW
+  CONTACTED
+  CONFIRMED
+  REJECTED
+  COMPLETED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  PDF
+  WORD
+  EXCEL
+  OTHER
+}
+
+enum MessageStatus {
+  UNREAD
+  READ
+  REPLIED
+}
+
+enum Locale {
+  ar
+  en
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  passwordHash String
+  fullName     String
+  role         UserRole       @default(EDITOR)
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  refreshTokens RefreshToken[]
+  notifications Notification[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Instructor {
+  id           String             @id @default(cuid())
+  name         String
+  title        String
+  biography    String             @db.Text
+  experience   String             @db.Text
+  certificates String[]
+  imageUrl     String?
+  sortOrder    Int                @default(0)
+  isPublished  Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  socialLinks  InstructorSocial[]
+  courses      CourseInstructor[]
+  translations InstructorTranslation[]
+}
+
+model InstructorTranslation {
+  id           String     @id @default(cuid())
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  locale       Locale
+  name         String
+  title        String
+  biography    String     @db.Text
+  experience   String     @db.Text
+  certificates String[]
+
+  @@unique([instructorId, locale])
+}
+
+model InstructorSocial {
+  id           String     @id @default(cuid())
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  platform     String
+  url          String
+}
+
+model Course {
+  id            String               @id @default(cuid())
+  title         String
+  slug          String               @unique
+  coverUrl      String?
+  description   String               @db.Text
+  overview      String               @db.Text
+  objectives    String[]
+  requirements  String[]
+  duration      String
+  level         CourseLevel
+  price         Int?
+  currency      String               @default("IQD")
+  certificate          String?       @db.Text
+  registrationFormUrl  String?
+  status               PublishStatus @default(DRAFT)
+  sortOrder            Int           @default(0)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  gallery       CourseGallery[]
+  curriculum    CurriculumModule[]
+  instructors   CourseInstructor[]
+  registrations CourseRegistration[]
+  formFields    CourseFormField[]
+  graduates     Graduate[]
+  translations  CourseTranslation[]
+}
+
+enum FormFieldType {
+  TEXT
+  TEXTAREA
+  EMAIL
+  PHONE
+  NUMBER
+  SELECT
+}
+
+model CourseFormField {
+  id            String        @id @default(cuid())
+  courseId      String
+  course        Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  key           String
+  labelAr       String
+  labelEn       String
+  placeholderAr String?
+  placeholderEn String?
+  type          FormFieldType @default(TEXT)
+  required      Boolean       @default(true)
+  options       Json          @default("[]")
+  sortOrder     Int           @default(0)
+  width         String        @default("half")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([courseId, key])
+  @@index([courseId, sortOrder])
+}
+
+model CourseTranslation {
+  id           String   @id @default(cuid())
+  courseId     String
+  course       Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  locale       Locale
+  title        String
+  description  String   @db.Text
+  overview     String   @db.Text
+  objectives   String[]
+  requirements String[]
+  duration     String
+  certificate  String?  @db.Text
+
+  @@unique([courseId, locale])
+}
+
+model CourseInstructor {
+  courseId     String
+  instructorId String
+  course       Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  @@id([courseId, instructorId])
+}
+
+model CourseGallery {
+  id       String @id @default(cuid())
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  url      String
+  alt      String?
+  sortOrder Int   @default(0)
+}
+
+model CurriculumModule {
+  id          String             @id @default(cuid())
+  courseId    String
+  course      Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  description String?            @db.Text
+  outcomes    String[]           @default([])
+  sortOrder   Int                @default(0)
+  lessons     CurriculumLesson[]
+}
+
+model CurriculumLesson {
+  id          String           @id @default(cuid())
+  moduleId    String
+  module      CurriculumModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title       String
+  description String?          @db.Text
+  topics      String[]         @default([])
+  format      String?
+  duration    String?
+  sortOrder   Int              @default(0)
+}
+
+model CourseRegistration {
+  id          String             @id @default(cuid())
+  courseId    String
+  course      Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  fullName    String
+  phone       String
+  email       String
+  city        String             @default("")
+  occupation  String             @default("")
+  experience  String             @default("")
+  notes       String?            @db.Text
+  answers     Json?
+  status      RegistrationStatus @default(NEW)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model GalleryAlbum {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  coverUrl    String?
+  sortOrder   Int            @default(0)
+  isPublished Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  media       GalleryMedia[]
+  translations GalleryAlbumTranslation[]
+}
+
+model GalleryAlbumTranslation {
+  id          String       @id @default(cuid())
+  albumId     String
+  album       GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  locale      Locale
+  title       String
+  description String?
+
+  @@unique([albumId, locale])
+}
+
+model GalleryMedia {
+  id        String       @id @default(cuid())
+  albumId   String
+  album     GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  type      MediaType    @default(IMAGE)
+  url       String
+  title     String?
+  sortOrder Int          @default(0)
+  createdAt DateTime     @default(now())
+}
+
+model Graduate {
+  id               String   @id @default(cuid())
+  fullName         String
+  imageUrl         String?
+  certificateUrl   String?
+  courseId         String?
+  course           Course?  @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  courseTitle      String?
+  graduationDate   DateTime
+  description      String?  @db.Text
+  isPublished      Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  translations     GraduateTranslation[]
+}
+
+model GraduateTranslation {
+  id          String   @id @default(cuid())
+  graduateId  String
+  graduate    Graduate @relation(fields: [graduateId], references: [id], onDelete: Cascade)
+  locale      Locale
+  fullName    String
+  courseTitle String?
+  description String?  @db.Text
+
+  @@unique([graduateId, locale])
+}
+
+model Testimonial {
+  id         String   @id @default(cuid())
+  name       String
+  profession String
+  rating     Int      @default(5)
+  review     String   @db.Text
+  imageUrl   String?
+  videoUrl   String?
+  isPublished Boolean @default(true)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  translations TestimonialTranslation[]
+}
+
+model TestimonialTranslation {
+  id            String      @id @default(cuid())
+  testimonialId String
+  testimonial   Testimonial @relation(fields: [testimonialId], references: [id], onDelete: Cascade)
+  locale        Locale
+  name          String
+  profession    String
+  review        String      @db.Text
+
+  @@unique([testimonialId, locale])
+}
+
+model Faq {
+  id         String   @id @default(cuid())
+  question   String
+  answer     String   @db.Text
+  category   String
+  sortOrder  Int      @default(0)
+  isPublished Boolean @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  translations FaqTranslation[]
+}
+
+model FaqTranslation {
+  id       String @id @default(cuid())
+  faqId    String
+  faq      Faq    @relation(fields: [faqId], references: [id], onDelete: Cascade)
+  locale   Locale
+  question String
+  answer   String @db.Text
+  category String
+
+  @@unique([faqId, locale])
+}
+
+model ContactMessage {
+  id        String        @id @default(cuid())
+  fullName  String
+  email     String
+  phone     String?
+  subject   String
+  message   String        @db.Text
+  status    MessageStatus @default(UNREAD)
+  reply     String?       @db.Text
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model MediaFolder {
+  id        String       @id @default(cuid())
+  name      String
+  parentId  String?
+  parent    MediaFolder? @relation("FolderTree", fields: [parentId], references: [id])
+  children  MediaFolder[] @relation("FolderTree")
+  assets    MediaAsset[]
+  createdAt DateTime     @default(now())
+}
+
+model MediaAsset {
+  id        String       @id @default(cuid())
+  folderId  String?
+  folder    MediaFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  name      String
+  key       String
+  url       String
+  mimeType  String
+  size      Int
+  type      MediaType
+  createdAt DateTime     @default(now())
+
+  @@index([name])
+  @@index([type])
+}
+
+model SiteContent {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  title     String?
+  body      String?  @db.Text
+  imageUrl  String?
+  data      Json?
+  updatedAt DateTime @updatedAt
+  translations SiteContentTranslation[]
+}
+
+model SiteContentTranslation {
+  id        String      @id @default(cuid())
+  contentId String
+  content   SiteContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  locale    Locale
+  title     String?
+  body      String?     @db.Text
+  data      Json?
+
+  @@unique([contentId, locale])
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model KnowledgeCategory {
+  id        String           @id @default(cuid())
+  name      String           @unique
+  entries   KnowledgeEntry[]
+  documents KnowledgeDocument[]
+  createdAt DateTime         @default(now())
+}
+
+model KnowledgeEntry {
+  id         String             @id @default(cuid())
+  categoryId String?
+  category   KnowledgeCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  question   String
+  answer     String             @db.Text
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  chunks     KnowledgeChunk[]
+  locale     Locale             @default(ar)
+}
+
+model KnowledgeDocument {
+  id         String             @id @default(cuid())
+  categoryId String?
+  category   KnowledgeCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  title      String
+  sourceType String
+  sourceUrl  String?
+  mediaKey   String?
+  content    String?            @db.Text
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  chunks     KnowledgeChunk[]
+  locale     Locale             @default(ar)
+}
+
+model KnowledgeChunk {
+  id         String             @id @default(cuid())
+  entryId    String?
+  entry      KnowledgeEntry?    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  documentId String?
+  document   KnowledgeDocument? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  content    String             @db.Text
+  embedding  Float[]
+  createdAt  DateTime           @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+}
+
+model CalendarEvent {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  title         String
+  titleEn       String?
+  description   String?  @db.Text
+  descriptionEn String?  @db.Text
+  coverUrl      String?
+  location      String?
+  locationEn    String?
+  presenterAr   String?
+  presenterEn   String?
+  startsAt      DateTime
+  endsAt        DateTime
+  allDay        Boolean  @default(false)
+  isPublished   Boolean  @default(false)
+  isFeatured    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([startsAt])
+  @@index([isPublished, isFeatured])
+  @@index([endsAt])
+}
+
+model SiteVisit {
+  id        String   @id @default(cuid())
+  path      String   @default("/")
+  sessionId String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([sessionId])
+  @@index([sessionId, createdAt])
+}
