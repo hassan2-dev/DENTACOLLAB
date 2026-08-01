@@ -288,7 +288,7 @@ export function FloatingChat() {
   return (
     <div
       ref={rootRef}
-      className="fixed z-[70] bottom-[max(1rem,env(safe-area-inset-bottom))] end-4 sm:bottom-6 sm:end-6"
+      className="fixed z-[70] bottom-[max(1rem,env(safe-area-inset-bottom))] start-4 sm:bottom-6 sm:start-6"
     >
       <AnimatePresence>
         {open ? (
@@ -488,18 +488,18 @@ export function FloatingChat() {
             {!open && notice ? (
               <motion.div
                 key={notice}
-                initial={{ opacity: 0, x: isAr ? 10 : -10, scale: 0.96 }}
+                initial={{ opacity: 0, x: isAr ? -10 : 10, scale: 0.96 }}
                 animate={{ opacity: 1, x: 0, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.96 }}
                 className={`relative mb-2 max-w-[190px] rounded-2xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-[11px] font-semibold leading-5 text-[#101c38] shadow-[0_12px_30px_rgba(16,28,56,.14)] dark:border-[#1a2f4d] dark:bg-[#0a1628] dark:text-white ${
-                  isAr ? 'rounded-es-md' : 'rounded-ee-md'
+                  isAr ? 'rounded-ee-md' : 'rounded-es-md'
                 }`}
                 dir={isAr ? 'rtl' : 'ltr'}
               >
                 {notice}
                 <span
                   className={`absolute bottom-3 h-3 w-3 rotate-45 border-slate-200/90 bg-white dark:border-[#1a2f4d] dark:bg-[#0a1628] ${
-                    isAr ? '-start-1.5 border-b border-s' : '-end-1.5 border-b border-e'
+                    isAr ? '-end-1.5 border-b border-e' : '-start-1.5 border-b border-s'
                   }`}
                 />
               </motion.div>
@@ -509,17 +509,8 @@ export function FloatingChat() {
 
         return (
           <div className="flex items-end gap-3">
-            {isAr ? (
-              <>
-                {fab}
-                {bubble}
-              </>
-            ) : (
-              <>
-                {bubble}
-                {fab}
-              </>
-            )}
+            {fab}
+            {bubble}
           </div>
         );
       })()}

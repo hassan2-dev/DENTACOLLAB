@@ -521,47 +521,54 @@ export function HomePage() {
             </h2>
             <p className="mt-3 text-sm leading-7 text-slate-500 dark:text-slate-400">{copy.pathBody}</p>
           </div>
-          <div className="mx-auto grid max-w-2xl gap-6">
-            {(courses.data || []).slice(0, 1).map((course, index) => (
+        </div>
+        {publishedCourses.length ? (
+          <div
+            className="flex snap-x snap-mandatory gap-5 overflow-x-auto px-[max(1.25rem,calc((100vw-72rem)/2+1.25rem))] pb-4 pe-[max(1.25rem,calc((100vw-72rem)/2+1.25rem))] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {publishedCourses.map((course) => (
               <article
-                key={course?.id || index}
-                className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_18px_50px_rgba(16,28,56,.06)] dark:border-[#19314f] dark:bg-[#081426]"
+                key={course.id}
+                className="w-[min(86vw,22rem)] shrink-0 snap-start overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_18px_50px_rgba(16,28,56,.06)] dark:border-[#19314f] dark:bg-[#081426] sm:w-[22rem]"
               >
                 <img
-                  src={course?.coverUrl || '/dentacollab-hero.png'}
-                  alt={course?.title || 'Course'}
+                  src={course.coverUrl || '/dentacollab-hero.png'}
+                  alt={course.title}
                   className="h-48 w-full object-cover transition duration-500 hover:scale-[1.02]"
                 />
                 <div className="p-6">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-xl font-bold text-[#101c38] dark:text-white">{course?.title}</h3>
-                    <span className="rounded-full bg-[#e8f9fc] px-3 py-1 text-xs font-bold text-[#1789a2] dark:bg-[#0b2850] dark:text-[#42d7ff]">
-                      {levelLabel[locale][course?.level || 'BASIC']}
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="text-lg font-bold leading-7 text-[#101c38] dark:text-white">{course.title}</h3>
+                    <span className="shrink-0 rounded-full bg-[#e8f9fc] px-3 py-1 text-xs font-bold text-[#1789a2] dark:bg-[#0b2850] dark:text-[#42d7ff]">
+                      {levelLabel[locale][course.level] || course.level}
                     </span>
                   </div>
-                  <p className="mt-3 text-sm leading-7 text-slate-500 dark:text-slate-400">{course?.description}</p>
-                  {course?.price != null ? (
+                  <p className="mt-2 text-xs font-semibold text-slate-400">{course.duration}</p>
+                  <p className="mt-3 line-clamp-3 text-sm leading-7 text-slate-500 dark:text-slate-400">{course.description}</p>
+                  {course.price != null ? (
                     <p className="mt-3 text-lg font-black text-[#101c38] dark:text-white">
                       {course.price.toLocaleString(isAr ? 'ar-IQ' : 'en-US')}{' '}
                       {course.currency === 'USD' ? (isAr ? '$' : 'USD') : isAr ? 'د.ع' : 'IQD'}
                     </p>
                   ) : null}
                   <div className="mt-5 grid gap-2">
-                    {(course?.objectives || []).slice(0, 2).map((item) => (
+                    {(course.objectives || []).slice(0, 2).map((item) => (
                       <div key={item} className="flex items-start gap-2 text-xs font-semibold leading-6 text-slate-600 dark:text-slate-300">
                         <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#1fb6d1]" />
                         {item}
                       </div>
                     ))}
                   </div>
-                  <Link to={`/courses/${course?.slug}`} className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-[#1fb6d1]">
+                  <Link to={`/courses/${course.slug}`} className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-[#1fb6d1]">
                     {copy.learnMore} <span aria-hidden>→</span>
                   </Link>
                 </div>
               </article>
             ))}
           </div>
-        </div>
+        ) : (
+          <p className="dc-container text-center text-sm text-slate-500">{copy.noCourses}</p>
+        )}
       </section>
 
       <section className="bg-white py-20 dark:bg-[#06101f]">
