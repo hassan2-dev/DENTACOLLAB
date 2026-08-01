@@ -56,8 +56,29 @@ export type LoginInput = z.infer<typeof LoginSchema>;
 
 export const ChatMessageSchema = z.object({
   message: z.string().min(1).max(2000),
+  locale: z.enum(['ar', 'en']).optional(),
   sessionId: z.string().uuid().optional(),
 });
 export type ChatMessageInput = z.infer<typeof ChatMessageSchema>;
+
+export const ChatBotQaSchema = z.object({
+  questionAr: z.string().min(2).max(500),
+  answerAr: z.string().min(2).max(5000),
+  questionEn: z.string().min(2).max(500),
+  answerEn: z.string().min(2).max(5000),
+  isActive: z.boolean().optional(),
+  sortOrder: z.number().int().optional(),
+});
+export type ChatBotQaInput = z.infer<typeof ChatBotQaSchema>;
+
+export const ChatBotSettingsSchema = z.object({
+  welcomeAr: z.string().min(1).max(1000),
+  welcomeEn: z.string().min(1).max(1000),
+  goodbyeAr: z.string().min(1).max(1000),
+  goodbyeEn: z.string().min(1).max(1000),
+  outOfScopeAr: z.string().min(1).max(1000),
+  outOfScopeEn: z.string().min(1).max(1000),
+});
+export type ChatBotSettingsInput = z.infer<typeof ChatBotSettingsSchema>;
 
 export const API_PREFIX = '/api/v1';

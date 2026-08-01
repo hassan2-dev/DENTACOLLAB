@@ -14,9 +14,9 @@ import {
 } from './pages/SimpleCrudPages';
 import {
   CalendarAdminPage,
+  ChatbotAdminPage,
   ContentAdminPage,
   GalleryAdminPage,
-  KnowledgeAdminPage,
   MediaAdminPage,
   MessagesPage,
   SettingsAdminPage,
@@ -43,7 +43,8 @@ export default function App() {
               <Route path="media" element={<MediaAdminPage />} />
               <Route path="messages" element={<MessagesPage />} />
               <Route path="content" element={<ContentAdminPage />} />
-              <Route path="knowledge" element={<KnowledgeAdminPage />} />
+              <Route path="chatbot" element={<ChatbotAdminPage />} />
+              <Route path="knowledge" element={<Navigate to="/chatbot" replace />} />
               <Route path="calendar" element={<CalendarAdminPage />} />
               <Route path="settings" element={<SettingsAdminPage />} />
             </Route>

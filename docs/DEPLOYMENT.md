@@ -22,7 +22,7 @@ Required production values:
 - Production `DATABASE_URL` / Postgres credentials
 - `CORS_ORIGINS` with your public domains
 - `R2_*` for media storage
-- `OPENAI_API_KEY` for AI chatbot quality
+- WhatsApp number in settings (`general.whatsapp`) for chatbot handoff
 
 ## 2. Build frontends
 

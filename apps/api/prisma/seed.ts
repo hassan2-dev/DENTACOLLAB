@@ -900,9 +900,51 @@ async function main() {
           youtube: 'https://youtube.com',
         },
       },
+      {
+        key: 'chatbot',
+        value: {
+          welcomeAr: 'مرحباً بك في DentaCollab. كيف أقدر أساعدك بخصوص الدورات أو التسجيل؟',
+          welcomeEn: 'Welcome to DentaCollab. How can I help with courses or registration?',
+          goodbyeAr: 'شكراً لتواصلك معنا. نتمنى لك يوماً سعيداً!',
+          goodbyeEn: 'Thanks for chatting with us. Have a great day!',
+          outOfScopeAr:
+            'عذراً، هذا السؤال خارج نطاق الأسئلة المتوفرة. يمكنك التواصل مع الدعم عبر واتساب.',
+          outOfScopeEn:
+            'Sorry, that question is outside our FAQ. You can reach support on WhatsApp.',
+        },
+      },
     ],
     skipDuplicates: true,
   });
+
+  const chatbotQaCount = await prisma.chatBotQa.count();
+  if (!chatbotQaCount) {
+    await prisma.chatBotQa.createMany({
+      data: [
+        {
+          questionAr: 'ما هي DentaCollab؟',
+          answerAr: 'DentaCollab أكاديمية متخصصة في تعليم وتطبيقات طب الأسنان الرقمي.',
+          questionEn: 'What is DentaCollab?',
+          answerEn: 'DentaCollab is an academy specialized in digital dentistry education and practice.',
+          sortOrder: 0,
+        },
+        {
+          questionAr: 'كيف أسجل في دورة؟',
+          answerAr: 'افتح صفحة الدورة ثم عبّئ نموذج التسجيل وسيقوم الفريق بالتواصل معك.',
+          questionEn: 'How do I register for a course?',
+          answerEn: 'Open the course page, fill in the registration form, and our team will contact you.',
+          sortOrder: 1,
+        },
+        {
+          questionAr: 'هل توجد شهادة؟',
+          answerAr: 'نعم، تُمنح شهادة معتمدة بعد إكمال متطلبات الدورة بنجاح.',
+          questionEn: 'Is there a certificate?',
+          answerEn: 'Yes, an accredited certificate is awarded after successfully completing the course requirements.',
+          sortOrder: 2,
+        },
+      ],
+    });
+  }
 
   await prisma.knowledgeCategory.create({
     data: {

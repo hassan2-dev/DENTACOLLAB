@@ -45,7 +45,7 @@ const groups = [
     links: [
       { to: '/gallery', ar: 'المعرض والوسائط', en: 'Gallery & media', icon: 'image' },
       { to: '/faq', ar: 'الأسئلة الشائعة', en: 'FAQ', icon: 'help' },
-      { to: '/knowledge', ar: 'قاعدة المعرفة', en: 'Knowledge base', icon: 'spark' },
+      { to: '/chatbot', ar: 'الشات بوت', en: 'Chatbot', icon: 'spark' },
     ],
   },
 ];

@@ -1,12 +1,25 @@
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api';
 import { useLocale } from '../lib/locale';
 
-type Msg = { role: 'user' | 'bot'; text: string };
+type Msg = { role: 'user' | 'bot'; text: string; whatsappUrl?: string | null };
+
+type ChatReply = {
+  answer: string;
+  matched: boolean;
+  whatsappUrl?: string | null;
+  mode: 'faq' | 'whatsapp';
+};
+
+type Bootstrap = {
+  welcome: string;
+  goodbye: string;
+  quickPrompts: string[];
+};
 
 function IconSend({ className = '', flip = false }: { className?: string; flip?: boolean }) {
   return (
@@ -61,9 +74,16 @@ function DentaFace({ thinking = false, className = '' }: { thinking?: boolean; c
 export function ChatPage() {
   const { locale } = useLocale();
   const isAr = locale === 'ar';
-  const greeting = isAr
-    ? 'مرحباً بك في DentaCollab. أنا مساعد الأكاديمية — اسأل عن الدورات، التسجيل، أو الشهادات.'
-    : 'Welcome to DentaCollab. I’m the academy assistant — ask about courses, registration, or certificates.';
+  const bootstrap = useQuery({
+    queryKey: ['chatbot-bootstrap', locale],
+    queryFn: () => api<Bootstrap>('/chatbot/bootstrap'),
+  });
+
+  const greeting =
+    bootstrap.data?.welcome ||
+    (isAr
+      ? 'مرحباً بك في DentaCollab. أنا مساعد الأكاديمية — اسأل عن الدورات، التسجيل، أو الشهادات.'
+      : 'Welcome to DentaCollab. I’m the academy assistant — ask about courses, registration, or certificates.');
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Msg[]>([{ role: 'bot', text: greeting }]);
   const listRef = useRef<HTMLDivElement>(null);
@@ -74,9 +94,15 @@ export function ChatPage() {
 
   const mutation = useMutation({
     mutationFn: (message: string) =>
-      api<{ answer: string }>('/chat', { method: 'POST', body: JSON.stringify({ message }) }),
+      api<ChatReply>('/chat', {
+        method: 'POST',
+        body: JSON.stringify({ message, locale }),
+      }),
     onSuccess: (data) => {
-      setMessages((prev) => [...prev, { role: 'bot', text: data.answer }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: 'bot', text: data.answer, whatsappUrl: data.whatsappUrl },
+      ]);
     },
     onError: () => {
       setMessages((prev) => [
@@ -100,9 +126,11 @@ export function ChatPage() {
     mutation.mutate(message);
   }
 
-  const quickPrompts = isAr
-    ? ['الدورات المتوفرة', 'طريقة التسجيل', 'هل توجد شهادة؟', 'مدة الدورات']
-    : ['Available courses', 'How to enroll', 'Certificate included?', 'Course duration'];
+  const quickPrompts = bootstrap.data?.quickPrompts?.length
+    ? bootstrap.data.quickPrompts
+    : isAr
+      ? ['الدورات المتوفرة', 'طريقة التسجيل', 'هل توجد شهادة؟', 'مدة الدورات']
+      : ['Available courses', 'How to enroll', 'Certificate included?', 'Course duration'];
 
   const tips = isAr
     ? [
@@ -121,19 +149,18 @@ export function ChatPage() {
   return (
     <div className="min-h-[calc(100dvh-70px)] bg-[#f4f7fa] text-[#101c38] transition-colors dark:bg-[#040b18] dark:text-[#eaf4ff] sm:min-h-[calc(100dvh-78px)]">
       <Helmet>
-        <title>{isAr ? 'المساعد الذكي' : 'AI Assistant'} | DentaCollab</title>
+        <title>{isAr ? 'المساعد' : 'Assistant'} | DentaCollab</title>
         <meta
           name="description"
           content={
             isAr
-              ? 'تحدث مع مساعد DentaCollab حول الدورات والتسجيل.'
-              : 'Chat with the DentaCollab assistant about courses and registration.'
+              ? 'أسئلة وأجوبة حول دورات وتسجيل DentaCollab.'
+              : 'FAQ answers about DentaCollab courses and registration.'
           }
         />
       </Helmet>
 
       <section className="dc-container grid gap-5 py-5 sm:py-8 lg:grid-cols-[0.9fr_1.2fr] lg:items-stretch lg:gap-8 lg:py-10">
-        {/* Side intro — desktop */}
         <aside className="hidden flex-col justify-between rounded-[1.6rem] border border-slate-200/90 bg-gradient-to-br from-[#101c38] via-[#122543] to-[#0d3a48] p-6 text-white shadow-[0_24px_60px_rgba(16,28,56,.2)] lg:flex dark:border-[#1a2f4d]">
           <div>
             <div className="mb-6 inline-flex items-center gap-3">
@@ -148,12 +175,12 @@ export function ChatPage() {
               </div>
             </div>
             <h1 className="text-3xl font-black leading-tight tracking-[-0.03em]">
-              {isAr ? 'اسأل أي شيء عن مسارك الرقمي' : 'Ask anything about your digital path'}
+              {isAr ? 'أسئلة وأجوبة جاهزة' : 'Ready FAQ answers'}
             </h1>
             <p className="mt-4 text-sm leading-7 text-slate-300">
               {isAr
-                ? 'إجابات سريعة حول الدورات، التسجيل، والبرامج — بالعربية أو الإنجليزية.'
-                : 'Quick answers about courses, enrollment, and programs — in Arabic or English.'}
+                ? 'إجابات من قائمة الأسئلة المعتمدة. إذا سؤالك خارج النطاق نوجهك لواتساب الدعم.'
+                : 'Answers from our approved FAQ. Out-of-scope questions go to WhatsApp support.'}
             </p>
 
             <div className="mt-8 grid gap-3">
@@ -182,7 +209,6 @@ export function ChatPage() {
           </div>
         </aside>
 
-        {/* Chat shell */}
         <div className="flex min-h-[calc(100dvh-7.5rem)] flex-col overflow-hidden rounded-[1.4rem] border border-slate-200/90 bg-white shadow-[0_20px_50px_rgba(16,28,56,.1)] dark:border-[#1a2f4d] dark:bg-[#071426] sm:min-h-[560px] lg:min-h-[640px] lg:max-h-[min(720px,78vh)]">
           <header className="flex items-center gap-3 border-b border-slate-200/80 bg-white px-4 py-3.5 dark:border-[#1a2f4d] dark:bg-[#071426] sm:px-5">
             <div className="relative grid h-11 w-11 place-items-center overflow-hidden rounded-full bg-[#101c38] ring-2 ring-[#1fb6d1]/30">
@@ -199,8 +225,8 @@ export function ChatPage() {
                     ? 'يكتب الآن...'
                     : 'Typing...'
                   : isAr
-                    ? 'متصل · يرد فوراً'
-                    : 'Online · replies instantly'}
+                    ? 'متصل · سؤال وجواب'
+                    : 'Online · FAQ replies'}
               </p>
             </div>
             <Link
@@ -211,7 +237,6 @@ export function ChatPage() {
             </Link>
           </header>
 
-          {/* Mobile intro strip */}
           <div className="border-b border-slate-200/70 bg-[#f7fafc] px-4 py-3 text-start dark:border-[#1a2f4d] dark:bg-[#06101f] lg:hidden">
             <p className="text-xs font-bold text-[#101c38] dark:text-white">
               {isAr ? 'اسأل عن الدورات والتسجيل' : 'Ask about courses & enrollment'}
@@ -238,13 +263,23 @@ export function ChatPage() {
                   </div>
                 ) : null}
                 <div
-                  className={`max-w-[88%] px-3.5 py-2.5 text-sm leading-7 sm:max-w-[80%] ${
+                  className={`max-w-[88%] space-y-2 px-3.5 py-2.5 text-sm leading-7 sm:max-w-[80%] ${
                     m.role === 'user'
                       ? 'rounded-2xl rounded-ee-md bg-[#101c38] text-white'
                       : 'rounded-2xl rounded-es-md border border-slate-200/90 bg-white text-[#243447] shadow-sm dark:border-[#1a2f4d] dark:bg-[#0a1628] dark:text-[#e7f2ff]'
                   }`}
                 >
-                  {m.text}
+                  <p>{m.text}</p>
+                  {m.whatsappUrl ? (
+                    <a
+                      href={m.whatsappUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex rounded-full bg-[#25D366] px-3 py-1.5 text-xs font-bold text-white"
+                    >
+                      {isAr ? 'تواصل عبر واتساب' : 'Contact on WhatsApp'}
+                    </a>
+                  ) : null}
                 </div>
               </motion.div>
             ))}

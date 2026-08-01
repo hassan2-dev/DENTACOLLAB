@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Input, Textarea } from '@dentacollab/ui';
 import { api } from '../lib/api';
@@ -460,51 +460,86 @@ export function SettingsAdminPage() {
 }
 
 export function KnowledgeAdminPage() {
+  return <Navigate to="/chatbot" replace />;
+}
+
+type ChatBotSettings = {
+  welcomeAr: string;
+  welcomeEn: string;
+  goodbyeAr: string;
+  goodbyeEn: string;
+  outOfScopeAr: string;
+  outOfScopeEn: string;
+};
+
+type ChatBotQa = {
+  id: string;
+  questionAr: string;
+  answerAr: string;
+  questionEn: string;
+  answerEn: string;
+  isActive: boolean;
+  sortOrder: number;
+};
+
+export function ChatbotAdminPage() {
   const { language } = useAdminPreferences();
   const isAr = language === 'ar';
   const qc = useQueryClient();
-  const entries = useQuery({
-    queryKey: ['knowledge-entries'],
-    queryFn: () => api<Array<{ id: string; question: string; answer: string }>>('/knowledge/entries'),
-  });
-  const docs = useQuery({
-    queryKey: ['knowledge-docs'],
-    queryFn: () => api<Array<{ id: string; title: string; sourceType: string }>>('/knowledge/documents'),
-  });
-  const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState('');
-  const [urlTitle, setUrlTitle] = useState('');
-  const [url, setUrl] = useState('');
+  const excelRef = useRef<HTMLInputElement>(null);
 
-  const addEntry = useMutation({
-    mutationFn: () => api('/knowledge/entries', { method: 'POST', body: JSON.stringify({ question, answer }) }),
+  const settingsQuery = useQuery({
+    queryKey: ['chatbot-settings'],
+    queryFn: () => api<ChatBotSettings>('/chatbot/settings'),
+  });
+  const qaQuery = useQuery({
+    queryKey: ['chatbot-qa'],
+    queryFn: () => api<ChatBotQa[]>('/chatbot/qa'),
+  });
+
+  const [settings, setSettings] = useState<ChatBotSettings>({
+    welcomeAr: '',
+    welcomeEn: '',
+    goodbyeAr: '',
+    goodbyeEn: '',
+    outOfScopeAr: '',
+    outOfScopeEn: '',
+  });
+  const [form, setForm] = useState({
+    questionAr: '',
+    answerAr: '',
+    questionEn: '',
+    answerEn: '',
+  });
+
+  useEffect(() => {
+    if (settingsQuery.data) setSettings(settingsQuery.data);
+  }, [settingsQuery.data]);
+
+  const saveSettings = useMutation({
+    mutationFn: () =>
+      api('/chatbot/settings', { method: 'PUT', body: JSON.stringify(settings) }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['knowledge-entries'] });
-      setQuestion('');
-      setAnswer('');
-      notify.success(isAr ? 'تمت إضافة السؤال' : 'Entry added');
+      qc.invalidateQueries({ queryKey: ['chatbot-settings'] });
+      notify.success(isAr ? 'تم حفظ الإعدادات' : 'Settings saved');
     },
-    onError: () => notify.error(isAr ? 'فشلت الإضافة' : 'Add failed'),
+    onError: () => notify.error(isAr ? 'فشل الحفظ' : 'Save failed'),
   });
-  const addUrl = useMutation({
-    mutationFn: () => api('/knowledge/documents/url', { method: 'POST', body: JSON.stringify({ title: urlTitle, url }) }),
+
+  const addQa = useMutation({
+    mutationFn: () => api('/chatbot/qa', { method: 'POST', body: JSON.stringify(form) }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['knowledge-docs'] });
-      setUrlTitle('');
-      setUrl('');
-      notify.success(isAr ? 'تمت إضافة الرابط' : 'URL added');
+      qc.invalidateQueries({ queryKey: ['chatbot-qa'] });
+      setForm({ questionAr: '', answerAr: '', questionEn: '', answerEn: '' });
+      notify.success(isAr ? 'تمت إضافة السؤال' : 'Question added');
     },
-    onError: () => notify.error(isAr ? 'فشلت الإضافة' : 'Add failed'),
+    onError: (err: Error) => notify.error(err.message || (isAr ? 'فشلت الإضافة' : 'Add failed')),
   });
-  const reindex = useMutation({
-    mutationFn: () => api('/knowledge/reindex', { method: 'POST' }),
-    onSuccess: () => notify.success(isAr ? 'بدأت إعادة الفهرسة' : 'Reindex started'),
-    onError: () => notify.error(isAr ? 'فشلت إعادة الفهرسة' : 'Reindex failed'),
-  });
-  const removeEntry = useMutation({
-    mutationFn: (id: string) => api(`/knowledge/entries/${id}`, { method: 'DELETE' }),
+
+  const removeQa = useMutation({
+    mutationFn: (id: string) => api(`/chatbot/qa/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['knowledge-entries'] });
+      qc.invalidateQueries({ queryKey: ['chatbot-qa'] });
       notify.success(isAr ? 'تم الحذف' : 'Deleted');
     },
     onError: () => notify.error(isAr ? 'فشل الحذف' : 'Delete failed'),
@@ -513,105 +548,177 @@ export function KnowledgeAdminPage() {
   return (
     <div className="admin-page space-y-6">
       <PageHeader
-        eyebrow={isAr ? 'الذكاء الاصطناعي' : 'AI'}
-        title={isAr ? 'قاعدة معرفة الذكاء الاصطناعي' : 'AI knowledge base'}
+        eyebrow={isAr ? 'الدعم' : 'Support'}
+        title={isAr ? 'الشات بوت' : 'Chatbot'}
         description={
           isAr
-            ? 'أسئلة وأجوبة ومستندات تغذي مساعد الدردشة.'
-            : 'Q&A entries and documents that power the chat assistant.'
+            ? 'أسئلة وأجوبة بدون ذكاء اصطناعي، مع ترحيب وتوديع وتحويل واتساب.'
+            : 'FAQ chatbot without AI — welcome, goodbye, and WhatsApp handoff.'
         }
       />
 
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <Button type="button" variant="secondary" onClick={() => reindex.mutate()}>
-          {isAr ? 'إعادة الفهرسة' : 'Reindex'}
+      <form
+        className="admin-panel space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          saveSettings.mutate();
+        }}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-black">{isAr ? 'الترحيب والتوديع' : 'Welcome & goodbye'}</h2>
+          <div className="flex gap-2">
+            <LocalePill locale="ar" complete />
+            <LocalePill locale="en" complete />
+          </div>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Textarea
+            id="welcomeAr"
+            label={isAr ? 'ترحيب (عربي)' : 'Welcome (AR)'}
+            value={settings.welcomeAr}
+            onChange={(e) => setSettings((s) => ({ ...s, welcomeAr: e.target.value }))}
+          />
+          <Textarea
+            id="welcomeEn"
+            label={isAr ? 'ترحيب (إنجليزي)' : 'Welcome (EN)'}
+            value={settings.welcomeEn}
+            onChange={(e) => setSettings((s) => ({ ...s, welcomeEn: e.target.value }))}
+          />
+          <Textarea
+            id="goodbyeAr"
+            label={isAr ? 'توديع (عربي)' : 'Goodbye (AR)'}
+            value={settings.goodbyeAr}
+            onChange={(e) => setSettings((s) => ({ ...s, goodbyeAr: e.target.value }))}
+          />
+          <Textarea
+            id="goodbyeEn"
+            label={isAr ? 'توديع (إنجليزي)' : 'Goodbye (EN)'}
+            value={settings.goodbyeEn}
+            onChange={(e) => setSettings((s) => ({ ...s, goodbyeEn: e.target.value }))}
+          />
+          <Textarea
+            id="outOfScopeAr"
+            label={isAr ? 'خارج النطاق (عربي)' : 'Out of scope (AR)'}
+            value={settings.outOfScopeAr}
+            onChange={(e) => setSettings((s) => ({ ...s, outOfScopeAr: e.target.value }))}
+          />
+          <Textarea
+            id="outOfScopeEn"
+            label={isAr ? 'خارج النطاق (إنجليزي)' : 'Out of scope (EN)'}
+            value={settings.outOfScopeEn}
+            onChange={(e) => setSettings((s) => ({ ...s, outOfScopeEn: e.target.value }))}
+          />
+        </div>
+        <Button type="submit" disabled={saveSettings.isPending}>
+          {isAr ? 'حفظ الإعدادات' : 'Save settings'}
         </Button>
-      </div>
+      </form>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <form
-          className="admin-panel"
+          className="admin-panel space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            addEntry.mutate();
+            addQa.mutate();
           }}
         >
-          <h2 className="mb-3 text-lg font-black">{isAr ? 'سؤال وجواب' : 'Q&A'}</h2>
-          <Input id="q" label={isAr ? 'السؤال' : 'Question'} value={question} onChange={(e) => setQuestion(e.target.value)} />
-          <Textarea id="a" label={isAr ? 'الإجابة' : 'Answer'} value={answer} onChange={(e) => setAnswer(e.target.value)} />
-          <Button type="submit">{isAr ? 'إضافة' : 'Add'}</Button>
-        </form>
-        <form
-          className="admin-panel"
-          onSubmit={(e) => {
-            e.preventDefault();
-            addUrl.mutate();
-          }}
-        >
-          <h2 className="mb-3 text-lg font-black">{isAr ? 'رابط / رفع ملف' : 'URL / upload'}</h2>
+          <h2 className="text-lg font-black">{isAr ? 'إضافة سؤال' : 'Add question'}</h2>
           <Input
-            id="urlTitle"
-            label={isAr ? 'عنوان الرابط' : 'URL title'}
-            value={urlTitle}
-            onChange={(e) => setUrlTitle(e.target.value)}
+            id="qAr"
+            label={isAr ? 'السؤال (عربي)' : 'Question (AR)'}
+            value={form.questionAr}
+            onChange={(e) => setForm((f) => ({ ...f, questionAr: e.target.value }))}
           />
-          <Input id="url" label={isAr ? 'الرابط' : 'URL'} value={url} onChange={(e) => setUrl(e.target.value)} />
-          <Button type="submit" className="mb-4">
-            {isAr ? 'إضافة رابط' : 'Add URL'}
+          <Textarea
+            id="aAr"
+            label={isAr ? 'الإجابة (عربي)' : 'Answer (AR)'}
+            value={form.answerAr}
+            onChange={(e) => setForm((f) => ({ ...f, answerAr: e.target.value }))}
+          />
+          <Input
+            id="qEn"
+            label={isAr ? 'السؤال (إنجليزي)' : 'Question (EN)'}
+            value={form.questionEn}
+            onChange={(e) => setForm((f) => ({ ...f, questionEn: e.target.value }))}
+          />
+          <Textarea
+            id="aEn"
+            label={isAr ? 'الإجابة (إنجليزي)' : 'Answer (EN)'}
+            value={form.answerEn}
+            onChange={(e) => setForm((f) => ({ ...f, answerEn: e.target.value }))}
+          />
+          <Button type="submit" disabled={addQa.isPending}>
+            {isAr ? 'إضافة' : 'Add'}
           </Button>
+        </form>
+
+        <div className="admin-panel space-y-4">
+          <h2 className="text-lg font-black">{isAr ? 'استيراد Excel' : 'Excel import'}</h2>
+          <p className="text-sm text-[var(--color-ink-muted)]">
+            {isAr
+              ? 'الأعمدة المطلوبة: question_ar, answer_ar, question_en, answer_en'
+              : 'Required columns: question_ar, answer_ar, question_en, answer_en'}
+          </p>
           <input
+            ref={excelRef}
             type="file"
-            accept=".pdf,.docx,.xlsx,.xls,.txt"
+            accept=".xlsx,.xls"
+            className="hidden"
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
               try {
                 const fd = new FormData();
                 fd.append('file', file);
-                await api('/knowledge/documents/upload', { method: 'POST', body: fd });
-                qc.invalidateQueries({ queryKey: ['knowledge-docs'] });
-                notify.success(isAr ? 'تم رفع المستند' : 'Document uploaded');
-              } catch {
-                notify.error(isAr ? 'فشل رفع المستند' : 'Document upload failed');
+                const result = await api<{ imported: number; skipped: number }>('/chatbot/qa/import', {
+                  method: 'POST',
+                  body: fd,
+                });
+                qc.invalidateQueries({ queryKey: ['chatbot-qa'] });
+                notify.success(
+                  isAr
+                    ? `تم استيراد ${result.imported} سؤال (تخطي ${result.skipped})`
+                    : `Imported ${result.imported} (skipped ${result.skipped})`,
+                );
+              } catch (err) {
+                notify.error(err instanceof Error ? err.message : isAr ? 'فشل الاستيراد' : 'Import failed');
               }
               e.target.value = '';
             }}
           />
-        </form>
+          <Button type="button" variant="secondary" onClick={() => excelRef.current?.click()}>
+            {isAr ? 'رفع ملف Excel' : 'Upload Excel file'}
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ul className="admin-panel space-y-2">
-          {(entries.data || []).map((e) => (
-            <li
-              key={e.id}
-              className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] py-2 last:border-b-0"
-            >
-              <span className="min-w-0 flex-1 break-words text-sm">{e.question}</span>
-              <Button type="button" size="sm" variant="destructive" onClick={() => removeEntry.mutate(e.id)}>
-                {isAr ? 'حذف' : 'Delete'}
-              </Button>
-            </li>
-          ))}
-          {!entries.data?.length ? (
-            <li className="py-6 text-center text-sm text-[var(--color-ink-muted)]">
-              {isAr ? 'لا توجد أسئلة بعد.' : 'No entries yet.'}
-            </li>
-          ) : null}
-        </ul>
-        <ul className="admin-panel space-y-2">
-          {(docs.data || []).map((d) => (
-            <li key={d.id}>
-              {d.title} <span className="text-xs text-[var(--color-ink-muted)]">({d.sourceType})</span>
-            </li>
-          ))}
-          {!docs.data?.length ? (
-            <li className="py-6 text-center text-sm text-[var(--color-ink-muted)]">
-              {isAr ? 'لا توجد مستندات بعد.' : 'No documents yet.'}
-            </li>
-          ) : null}
-        </ul>
-      </div>
+      <ul className="admin-panel space-y-3">
+        <h2 className="text-lg font-black">{isAr ? 'الأسئلة الحالية' : 'Current questions'}</h2>
+        {(qaQuery.data || []).map((item) => (
+          <li
+            key={item.id}
+            className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--color-border)] py-3 last:border-b-0"
+          >
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-sm font-bold">{isAr ? item.questionAr : item.questionEn}</p>
+              <p className="text-xs text-[var(--color-ink-muted)] line-clamp-2">
+                {isAr ? item.answerAr : item.answerEn}
+              </p>
+              <p className="text-[11px] text-[var(--color-ink-muted)]">
+                {isAr ? item.questionEn : item.questionAr}
+              </p>
+            </div>
+            <Button type="button" size="sm" variant="destructive" onClick={() => removeQa.mutate(item.id)}>
+              {isAr ? 'حذف' : 'Delete'}
+            </Button>
+          </li>
+        ))}
+        {!qaQuery.data?.length ? (
+          <li className="py-6 text-center text-sm text-[var(--color-ink-muted)]">
+            {isAr ? 'لا توجد أسئلة بعد.' : 'No questions yet.'}
+          </li>
+        ) : null}
+      </ul>
     </div>
   );
 }

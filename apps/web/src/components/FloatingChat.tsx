@@ -1,13 +1,28 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useLocale } from '../lib/locale';
 
 type ChatMessage = {
   role: 'user' | 'bot';
   text: string;
+  whatsappUrl?: string | null;
+};
+
+type ChatReply = {
+  answer: string;
+  matched: boolean;
+  whatsappUrl?: string | null;
+  mode: 'faq' | 'whatsapp';
+};
+
+type Bootstrap = {
+  welcome: string;
+  goodbye: string;
+  outOfScope: string;
+  quickPrompts: string[];
 };
 
 function IconClose({ className = '' }: { className?: string }) {
@@ -17,10 +32,6 @@ function IconClose({ className = '' }: { className?: string }) {
     </svg>
   );
 }
-
-
-
-
 
 function IconSend({ className = '', flip = false }: { className?: string; flip?: boolean }) {
   return (
@@ -56,7 +67,6 @@ function IconExpand({ className = '' }: { className?: string }) {
   );
 }
 
-/** Compact brand bot face for launcher + bubbles */
 function DentaFabFace({ thinking = false }: { thinking?: boolean }) {
   return (
     <svg viewBox="0 0 64 64" className="h-full w-full" aria-hidden>
@@ -94,29 +104,48 @@ export function FloatingChat() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
+  const [saidGoodbye, setSaidGoodbye] = useState(false);
   const noticeTimer = useRef<ReturnType<typeof window.setTimeout> | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: 'bot',
-      text: isAr
-        ? 'مرحباً، أنا مساعد DentaCollab. كيف أساعدك في الدورات أو التسجيل؟'
-        : 'Hello — I’m the DentaCollab assistant. How can I help with courses or registration?',
-    },
-  ]);
   const listRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const quickPrompts = isAr
-    ? ['الدورات المتوفرة', 'طريقة التسجيل', 'الشهادة']
-    : ['Available courses', 'How to register', 'Certificate'];
+
+  const bootstrap = useQuery({
+    queryKey: ['chatbot-bootstrap', locale],
+    queryFn: () => api<Bootstrap>('/chatbot/bootstrap'),
+  });
+
+  const welcome =
+    bootstrap.data?.welcome ||
+    (isAr
+      ? 'مرحباً، أنا مساعد DentaCollab. كيف أساعدك في الدورات أو التسجيل؟'
+      : 'Hello — I’m the DentaCollab assistant. How can I help with courses or registration?');
+  const goodbye =
+    bootstrap.data?.goodbye ||
+    (isAr ? 'شكراً لتواصلك معنا. نتمنى لك يوماً سعيداً!' : 'Thanks for chatting with us. Have a great day!');
+  const quickPrompts = bootstrap.data?.quickPrompts?.length
+    ? bootstrap.data.quickPrompts
+    : isAr
+      ? ['الدورات المتوفرة', 'طريقة التسجيل', 'الشهادة']
+      : ['Available courses', 'How to register', 'Certificate'];
+
+  const [messages, setMessages] = useState<ChatMessage[]>([{ role: 'bot', text: welcome }]);
+
+  useEffect(() => {
+    setMessages([{ role: 'bot', text: welcome }]);
+    setSaidGoodbye(false);
+  }, [welcome]);
 
   const chat = useMutation({
     mutationFn: (message: string) =>
-      api<{ answer: string }>('/chat', {
+      api<ChatReply>('/chat', {
         method: 'POST',
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, locale }),
       }),
     onSuccess: (data) => {
-      setMessages((current) => [...current, { role: 'bot', text: data.answer }]);
+      setMessages((current) => [
+        ...current,
+        { role: 'bot', text: data.answer, whatsappUrl: data.whatsappUrl },
+      ]);
     },
     onError: () => {
       setMessages((current) => [
@@ -204,6 +233,16 @@ export function FloatingChat() {
     };
   }, [isAr, reactToEvent]);
 
+  const closeChat = useCallback(() => {
+    if (open && !saidGoodbye) {
+      setMessages((current) => [...current, { role: 'bot', text: goodbye }]);
+      setSaidGoodbye(true);
+      window.setTimeout(() => setOpen(false), 900);
+      return;
+    }
+    setOpen(false);
+  }, [goodbye, open, saidGoodbye]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -211,12 +250,12 @@ export function FloatingChat() {
       const root = rootRef.current;
       if (!root) return;
       if (event.target instanceof Node && !root.contains(event.target)) {
-        setOpen(false);
+        closeChat();
       }
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') closeChat();
     }
 
     document.addEventListener('pointerdown', handlePointerDown);
@@ -225,7 +264,7 @@ export function FloatingChat() {
       document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [open]);
+  }, [closeChat, open]);
 
   useEffect(
     () => () => {
@@ -293,7 +332,7 @@ export function FloatingChat() {
                 </Link>
                 <button
                   type="button"
-                  onClick={() => setOpen(false)}
+                  onClick={closeChat}
                   data-chat-control
                   className="grid h-9 w-9 place-items-center rounded-full text-white/70 transition hover:bg-white/10 hover:text-white"
                   aria-label={isAr ? 'إغلاق' : 'Close'}
@@ -318,13 +357,24 @@ export function FloatingChat() {
                     </div>
                   ) : null}
                   <div
-                    className={`max-w-[82%] px-3.5 py-2.5 text-[13px] leading-6 ${
+                    className={`max-w-[82%] space-y-2 px-3.5 py-2.5 text-[13px] leading-6 ${
                       message.role === 'user'
                         ? 'rounded-2xl rounded-ee-md bg-[#101c38] text-white'
                         : 'rounded-2xl rounded-es-md border border-slate-200/90 bg-white text-[#243447] shadow-sm dark:border-[#1a2f4d] dark:bg-[#0a1628] dark:text-slate-200'
                     }`}
                   >
-                    {message.text}
+                    <p>{message.text}</p>
+                    {message.whatsappUrl ? (
+                      <a
+                        href={message.whatsappUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        data-chat-control
+                        className="inline-flex rounded-full bg-[#25D366] px-3 py-1.5 text-[11px] font-bold text-white"
+                      >
+                        {isAr ? 'تواصل عبر واتساب' : 'Contact on WhatsApp'}
+                      </a>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -404,7 +454,13 @@ export function FloatingChat() {
               type="button"
               whileHover={{ y: -3, scale: 1.04 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => setOpen((value) => !value)}
+              onClick={() => {
+                if (open) closeChat();
+                else {
+                  setSaidGoodbye(false);
+                  setOpen(true);
+                }
+              }}
               data-chat-control
               className={`relative grid h-14 w-14 place-items-center overflow-hidden rounded-full shadow-[0_16px_40px_rgba(16,28,56,.32)] transition sm:h-16 sm:w-16 ${
                 open

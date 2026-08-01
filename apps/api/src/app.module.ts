@@ -17,6 +17,7 @@ import { MediaModule } from './presentation/media/media.module';
 import { ContentModule } from './presentation/content/content.module';
 import { SettingsModule } from './presentation/settings/settings.module';
 import { KnowledgeModule } from './presentation/knowledge/knowledge.module';
+import { ChatBotModule } from './presentation/chatbot/chatbot.module';
 import { ChatModule } from './presentation/chat/chat.module';
 import { AnalyticsModule } from './presentation/analytics/analytics.module';
 import { NotificationsModule } from './presentation/notifications/notifications.module';
@@ -42,6 +43,7 @@ import { HealthController } from './presentation/health.controller';
     ContentModule,
     SettingsModule,
     KnowledgeModule,
+    ChatBotModule,
     ChatModule,
     AnalyticsModule,
     NotificationsModule,

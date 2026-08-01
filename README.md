@@ -62,7 +62,6 @@ pnpm dev:admin   # http://localhost:5174
 | `DATABASE_URL` | PostgreSQL connection |
 | `JWT_ACCESS_SECRET` | Access token secret |
 | `R2_*` | Cloudflare R2 credentials (مطلوب) |
-| `OPENAI_API_KEY` | للـ RAG chatbot (اختياري — يوجد fallback محلي) |
 | `VITE_API_URL` | عنوان الـ API للفرونت |
 
 ## API
