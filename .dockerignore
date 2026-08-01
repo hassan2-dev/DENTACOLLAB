@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+.git
+.turbo
+dist
+**/dist
+apps/web
+apps/admin
+**/.env
+**/.env.*
+!.env.example
+*.md
+docs
+docker
+uploads
+**/*.log
+.DS_Store

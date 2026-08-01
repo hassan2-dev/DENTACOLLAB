@@ -1,11 +1,16 @@
-# Nixpacks — DentaCollab API (Coolify)
-# Base Directory: / (repo root)
+# Avoid Nixpacks + broken corepack on Coolify.
+# Prefer Build Pack = Dockerfile (see ./Dockerfile).
+# If you must use Nixpacks, leave Install empty and use npm (not corepack).
 
 [phases.setup]
-nixPkgs = ["nodejs_22", "pnpm", "openssl"]
+nixPkgs = ["nodejs_22", "openssl"]
+aptPkgs = ["openssl"]
 
 [phases.install]
-cmds = ["pnpm install --frozen-lockfile"]
+cmds = [
+  "npm install -g pnpm@9.15.9",
+  "pnpm install --frozen-lockfile"
+]
 
 [phases.build]
 cmds = [
@@ -21,3 +26,5 @@ cmd = "cd apps/api && npx prisma migrate deploy && node dist/main.js"
 NODE_ENV = "production"
 NIXPACKS_NODE_VERSION = "22"
 PORT = "3000"
+# Prevent Nixpacks from injecting corepack from packageManager field
+NIXPACKS_NO_CACHE = "1"

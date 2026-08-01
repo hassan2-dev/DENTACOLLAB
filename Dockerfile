@@ -1,5 +1,5 @@
-# DentaCollab API (same as root Dockerfile — keep in sync)
-# Coolify: Build Pack=Dockerfile, Dockerfile path=apps/api/Dockerfile, context=repo root
+# DentaCollab API — Coolify / production
+# Build Pack: Dockerfile | Context: repo root | Port: 3000
 
 FROM node:22-bookworm-slim AS base
 RUN apt-get update -y \
