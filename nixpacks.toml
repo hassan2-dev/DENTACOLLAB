@@ -1,15 +1,11 @@
-# Nixpacks — DentaCollab API (Coolify / Railway)
-# Base Directory must be repo root: /  (empty)
+# Nixpacks — DentaCollab API (Coolify)
+# Base Directory: / (repo root)
 
 [phases.setup]
-nixPkgs = ["openssl"]
+nixPkgs = ["nodejs_22", "pnpm", "openssl"]
 
 [phases.install]
-cmds = [
-  "corepack enable",
-  "corepack prepare pnpm@9.15.9 --activate",
-  "pnpm install --frozen-lockfile"
-]
+cmds = ["pnpm install --frozen-lockfile"]
 
 [phases.build]
 cmds = [
@@ -18,7 +14,6 @@ cmds = [
   "test -f apps/api/dist/main.js"
 ]
 
-# Coolify often overrides this — set the same Start Command in the UI
 [start]
 cmd = "cd apps/api && npx prisma migrate deploy && node dist/main.js"
 
