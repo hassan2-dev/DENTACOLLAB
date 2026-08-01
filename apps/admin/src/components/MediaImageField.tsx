@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useId, useRef } from 'react';
+import { useId, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { useAdminPreferences } from './AdminLayout';
 import { Button } from './ui/button';
@@ -26,7 +26,16 @@ function useMediaImages() {
   });
 }
 
-/** Single cover / image picker — visual grid, no dropdown */
+function UploadIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
+      <path d="M12 16V6M8 10l4-4 4 4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 16.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Single cover / image picker — simple for non-tech admins */
 export function MediaImageField({
   id,
   label,
@@ -47,6 +56,7 @@ export function MediaImageField({
   const isAr = language === 'ar';
   const qc = useQueryClient();
   const { data: images = [], isLoading } = useMediaImages();
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   const upload = useMutation({
     mutationFn: uploadFile,
@@ -58,27 +68,13 @@ export function MediaImageField({
     onError: (err: Error) => notify.error(err.message || (isAr ? 'فشل الرفع' : 'Upload failed')),
   });
 
-  const library = [...images];
-  if (value && !library.some((img) => img.url === value)) {
-    library.unshift({ id: 'current', name: isAr ? 'الحالية' : 'Current', url: value, type: 'IMAGE' });
-  }
+  const library = images.filter((img) => img.url !== value);
 
   return (
-    <div className={className || ''}>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <label htmlFor={fieldId} className="text-sm font-semibold text-[var(--color-ink)]">
-          {label}
-        </label>
-        <div className="flex gap-2">
-          <Button type="button" size="sm" variant="secondary" disabled={upload.isPending} onClick={() => fileRef.current?.click()}>
-            {upload.isPending ? (isAr ? 'جاري الرفع...' : 'Uploading...') : isAr ? 'رفع صورة' : 'Upload'}
-          </Button>
-          {value ? (
-            <Button type="button" size="sm" variant="outline" onClick={() => onChange('')}>
-              {isAr ? 'مسح' : 'Clear'}
-            </Button>
-          ) : null}
-        </div>
+    <div className={cn('media-field', className)}>
+      <div className="media-field-head">
+        <label htmlFor={fieldId}>{label}</label>
+        <span>{isAr ? 'اختياري — صورة واضحة أفضل' : 'Optional — a clear photo works best'}</span>
       </div>
 
       <input
@@ -95,45 +91,69 @@ export function MediaImageField({
       />
 
       {value ? (
-        <div className="mb-3 overflow-hidden rounded-xl border border-[var(--color-border)]">
-          <img src={value} alt="" className="h-40 w-full object-cover" />
+        <div className="media-preview">
+          <img src={value} alt="" />
+          <div className="media-preview-actions">
+            <Button type="button" size="sm" variant="secondary" disabled={upload.isPending} onClick={() => fileRef.current?.click()}>
+              {upload.isPending ? (isAr ? 'جاري الرفع...' : 'Uploading...') : isAr ? 'تغيير الصورة' : 'Change image'}
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => onChange('')}>
+              {isAr ? 'إزالة' : 'Remove'}
+            </Button>
+          </div>
         </div>
       ) : (
         <button
           type="button"
+          className="media-dropzone"
+          disabled={upload.isPending}
           onClick={() => fileRef.current?.click()}
-          className="mb-3 grid h-40 w-full place-items-center rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] text-sm font-semibold text-[var(--color-ink-muted)] transition hover:border-[#1fb6d1] hover:text-[#1fb6d1]"
         >
-          {isAr ? 'اضغط لرفع صورة الغلاف' : 'Click to upload cover image'}
+          <span className="media-dropzone-icon">
+            <UploadIcon />
+          </span>
+          <strong>{upload.isPending ? (isAr ? 'جاري الرفع...' : 'Uploading...') : isAr ? 'رفع صورة الغلاف' : 'Upload cover image'}</strong>
+          <span>{isAr ? 'اضغط هنا واختَر صورة من جهازك' : 'Click here and pick an image from your device'}</span>
         </button>
       )}
 
-      {isLoading ? <p className="text-xs text-[var(--color-ink-muted)]">{isAr ? 'جاري التحميل...' : 'Loading...'}</p> : null}
+      <div className="media-library-toggle">
+        <button type="button" onClick={() => setLibraryOpen((v) => !v)}>
+          {libraryOpen
+            ? isAr
+              ? 'إخفاء المكتبة'
+              : 'Hide library'
+            : isAr
+              ? 'أو اختر صورة من المكتبة'
+              : 'Or pick from the library'}
+        </button>
+      </div>
 
-      {library.length ? (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
-          {library.map((img) => {
-            const active = img.url === value;
-            return (
-              <button
-                key={img.id}
-                type="button"
-                onClick={() => onChange(active ? '' : img.url)}
-                className={cn(
-                  'overflow-hidden rounded-lg border-2 transition',
-                  active ? 'border-[#1fb6d1] ring-2 ring-[#1fb6d1]/25' : 'border-transparent hover:border-[var(--color-border)]',
-                )}
-                title={img.name}
-              >
-                <img src={img.url} alt={img.name} className="aspect-square w-full object-cover" />
-              </button>
-            );
-          })}
+      {libraryOpen ? (
+        <div className="media-library">
+          {isLoading ? <p className="media-library-empty">{isAr ? 'جاري التحميل...' : 'Loading...'}</p> : null}
+          {!isLoading && !library.length ? (
+            <p className="media-library-empty">{isAr ? 'لا صور محفوظة بعد.' : 'No saved images yet.'}</p>
+          ) : null}
+          {library.length ? (
+            <div className="media-library-grid">
+              {library.map((img) => (
+                <button
+                  key={img.id}
+                  type="button"
+                  title={img.name}
+                  className="media-library-item"
+                  onClick={() => {
+                    onChange(img.url);
+                    setLibraryOpen(false);
+                  }}
+                >
+                  <img src={img.url} alt={img.name} />
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
-      ) : !isLoading ? (
-        <p className="text-xs text-[var(--color-ink-muted)]">
-          {isAr ? 'لا صور في المكتبة بعد.' : 'No images in the library yet.'}
-        </p>
       ) : null}
     </div>
   );
@@ -156,6 +176,7 @@ export function MediaImagesField({
   const isAr = language === 'ar';
   const qc = useQueryClient();
   const { data: images = [], isLoading } = useMediaImages();
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   const upload = useMutation({
     mutationFn: async (files: File[]) => {
@@ -182,27 +203,15 @@ export function MediaImagesField({
     else onChange([...value, url]);
   }
 
-  const library = [...images];
-  for (const url of value) {
-    if (!library.some((img) => img.url === url)) {
-      library.unshift({ id: url, name: isAr ? 'مختارة' : 'Selected', url, type: 'IMAGE' });
-    }
-  }
-
   return (
-    <div className={className || ''}>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-[var(--color-ink)]">{label}</p>
-          <p className="mt-0.5 text-[11px] text-[var(--color-ink-muted)]">
-            {isAr
-              ? `${value.length} صورة مختارة — اضغط للإضافة/الإزالة`
-              : `${value.length} selected — click to add/remove`}
-          </p>
-        </div>
-        <Button type="button" size="sm" variant="secondary" disabled={upload.isPending} onClick={() => fileRef.current?.click()}>
-          {upload.isPending ? (isAr ? 'جاري الرفع...' : 'Uploading...') : isAr ? 'رفع عدة صور' : 'Upload images'}
-        </Button>
+    <div className={cn('media-field', className)}>
+      <div className="media-field-head">
+        <p>{label}</p>
+        <span>
+          {isAr
+            ? `${value.length} صورة مختارة — ارفع أو اختر من المكتبة`
+            : `${value.length} selected — upload or pick from library`}
+        </span>
       </div>
 
       <input
@@ -219,62 +228,69 @@ export function MediaImagesField({
       />
 
       {value.length ? (
-        <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+        <div className="media-multi-selected">
           {value.map((url) => (
-            <div key={url} className="group relative overflow-hidden rounded-xl border border-[var(--color-border)]">
-              <img src={url} alt="" className="aspect-square w-full object-cover" />
-              <button
-                type="button"
-                onClick={() => toggle(url)}
-                className="absolute end-1.5 top-1.5 rounded-md bg-[#e5485d] px-2 py-1 text-[10px] font-bold text-white opacity-90 transition group-hover:opacity-100"
-              >
+            <div key={url} className="media-multi-item">
+              <img src={url} alt="" />
+              <button type="button" onClick={() => toggle(url)}>
                 {isAr ? 'إزالة' : 'Remove'}
               </button>
             </div>
           ))}
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className="mb-3 grid h-28 w-full place-items-center rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] text-sm font-semibold text-[var(--color-ink-muted)] transition hover:border-[#1fb6d1] hover:text-[#1fb6d1]"
-        >
-          {isAr ? 'ارفع صور الألبوم الداخلية' : 'Upload album interior images'}
+      ) : null}
+
+      <button
+        type="button"
+        className="media-dropzone media-dropzone-sm"
+        disabled={upload.isPending}
+        onClick={() => fileRef.current?.click()}
+      >
+        <span className="media-dropzone-icon">
+          <UploadIcon />
+        </span>
+        <strong>{upload.isPending ? (isAr ? 'جاري الرفع...' : 'Uploading...') : isAr ? 'رفع صور' : 'Upload images'}</strong>
+        <span>{isAr ? 'يمكنك اختيار أكثر من صورة مرة واحدة' : 'You can select multiple images at once'}</span>
+      </button>
+
+      <div className="media-library-toggle">
+        <button type="button" onClick={() => setLibraryOpen((v) => !v)}>
+          {libraryOpen
+            ? isAr
+              ? 'إخفاء المكتبة'
+              : 'Hide library'
+            : isAr
+              ? 'أو اختر من المكتبة'
+              : 'Or pick from the library'}
         </button>
-      )}
+      </div>
 
-      {isLoading ? <p className="text-xs text-[var(--color-ink-muted)]">{isAr ? 'جاري التحميل...' : 'Loading...'}</p> : null}
-
-      {library.length ? (
-        <>
-          <p className="mb-2 text-[11px] font-bold text-[var(--color-ink-muted)]">
-            {isAr ? 'من المكتبة' : 'From library'}
-          </p>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
-            {library.map((img) => {
-              const active = value.includes(img.url);
-              return (
-                <button
-                  key={img.id}
-                  type="button"
-                  onClick={() => toggle(img.url)}
-                  className={cn(
-                    'relative overflow-hidden rounded-lg border-2 transition',
-                    active ? 'border-[#1fb6d1] ring-2 ring-[#1fb6d1]/25' : 'border-transparent hover:border-[var(--color-border)]',
-                  )}
-                  title={img.name}
-                >
-                  <img src={img.url} alt={img.name} className="aspect-square w-full object-cover" />
-                  {active ? (
-                    <span className="absolute inset-x-0 bottom-0 bg-[#101c38]/75 py-0.5 text-center text-[10px] font-bold text-white">
-                      ✓
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-        </>
+      {libraryOpen ? (
+        <div className="media-library">
+          {isLoading ? <p className="media-library-empty">{isAr ? 'جاري التحميل...' : 'Loading...'}</p> : null}
+          {!isLoading && !images.length ? (
+            <p className="media-library-empty">{isAr ? 'لا صور محفوظة بعد.' : 'No saved images yet.'}</p>
+          ) : null}
+          {images.length ? (
+            <div className="media-library-grid">
+              {images.map((img) => {
+                const active = value.includes(img.url);
+                return (
+                  <button
+                    key={img.id}
+                    type="button"
+                    title={img.name}
+                    className={cn('media-library-item', active && 'is-active')}
+                    onClick={() => toggle(img.url)}
+                  >
+                    <img src={img.url} alt={img.name} />
+                    {active ? <span className="media-check">✓</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

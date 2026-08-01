@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Input, Select } from '@dentacollab/ui';
 import { API_URL, api, getToken } from '../lib/api';
 import { useAdminPreferences } from '../components/AdminLayout';
@@ -18,7 +18,14 @@ type Registration = {
   answers?: Record<string, string> | null;
   status: string;
   createdAt: string;
-  course: { title: string };
+  course: { id: string; title: string };
+};
+
+type FormField = {
+  key: string;
+  labelAr: string;
+  labelEn: string;
+  sortOrder: number;
 };
 
 const STATUSES = ['NEW', 'CONTACTED', 'CONFIRMED', 'REJECTED', 'COMPLETED'] as const;
@@ -30,6 +37,79 @@ const STATUS_LABELS: Record<(typeof STATUSES)[number], { ar: string; en: string 
   REJECTED: { ar: 'مرفوض', en: 'Rejected' },
   COMPLETED: { ar: 'مكتمل', en: 'Completed' },
 };
+
+const FALLBACK_LABELS: Record<string, { ar: string; en: string }> = {
+  fullName: { ar: 'الاسم', en: 'Full name' },
+  phone: { ar: 'رقم الواتساب', en: 'WhatsApp' },
+  email: { ar: 'البريد الإلكتروني', en: 'Email' },
+  city: { ar: 'المدينة', en: 'City' },
+  occupation: { ar: 'المهنة', en: 'Occupation' },
+  experience: { ar: 'الخبرة', en: 'Experience' },
+  notes: { ar: 'ملاحظات', en: 'Notes' },
+  university: { ar: 'الجامعة والكلية', en: 'University' },
+  graduationYear: { ar: 'سنة التخرج', en: 'Graduation year' },
+  academicStage: { ar: 'المرحلة الدراسية', en: 'Academic stage' },
+  discountCode: { ar: 'كود الخصم', en: 'Discount code' },
+};
+
+function humanizeKey(key: string) {
+  return key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^\w/, (c) => c.toUpperCase());
+}
+
+function buildDetailRows(
+  reg: Registration,
+  fields: FormField[] | undefined,
+  ar: boolean,
+): Array<{ key: string; label: string; value: string }> {
+  const answers: Record<string, string> =
+    reg.answers && Object.keys(reg.answers).length
+      ? { ...reg.answers }
+      : {
+          fullName: reg.fullName,
+          phone: reg.phone,
+          email: reg.email,
+          city: reg.city,
+          occupation: reg.occupation,
+          experience: reg.experience,
+          notes: reg.notes || '',
+        };
+
+  // Ensure core columns always visible even if missing from answers
+  if (!answers.fullName) answers.fullName = reg.fullName;
+  if (!answers.phone) answers.phone = reg.phone;
+  if (!answers.email) answers.email = reg.email;
+
+  const labelFor = (key: string) => {
+    const field = fields?.find((f) => f.key === key);
+    if (field) return ar ? field.labelAr : field.labelEn;
+    const fallback = FALLBACK_LABELS[key];
+    if (fallback) return ar ? fallback.ar : fallback.en;
+    return humanizeKey(key);
+  };
+
+  const orderedKeys: string[] = [];
+  if (fields?.length) {
+    for (const f of [...fields].sort((a, b) => a.sortOrder - b.sortOrder)) {
+      if (f.key in answers) orderedKeys.push(f.key);
+    }
+  }
+  for (const key of Object.keys(answers)) {
+    if (!orderedKeys.includes(key)) orderedKeys.push(key);
+  }
+
+  return orderedKeys
+    .map((key) => ({
+      key,
+      label: labelFor(key),
+      value: (answers[key] || '').trim(),
+    }))
+    .filter((row) => row.value);
+}
 
 export function RegistrationsPage() {
   const { language } = useAdminPreferences();
@@ -48,11 +128,23 @@ export function RegistrationsPage() {
     },
   });
 
+  const formFields = useQuery({
+    queryKey: ['course-form-fields', selected?.course.id],
+    queryFn: () => api<FormField[]>(`/courses/${selected!.course.id}/form-fields`),
+    enabled: Boolean(selected?.course.id),
+  });
+
+  const detailRows = useMemo(() => {
+    if (!selected) return [];
+    return buildDetailRows(selected, formFields.data, ar);
+  }, [selected, formFields.data, ar]);
+
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       api(`/registrations/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['registrations'] });
+      setSelected((prev) => (prev && prev.id === vars.id ? { ...prev, status: vars.status } : prev));
       notify.success(ar ? 'تم تحديث الحالة' : 'Status updated');
     },
     onError: () => notify.error(ar ? 'فشل التحديث' : 'Update failed'),
@@ -107,7 +199,7 @@ export function RegistrationsPage() {
           ))}
         </Select>
       </div>
-      <div className="overflow-auto rounded-2xl border border-[var(--color-border)] bg-white">
+      <div className="overflow-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
         <table className="dc-table">
           <thead>
             <tr>
@@ -123,11 +215,12 @@ export function RegistrationsPage() {
               <tr key={r.id}>
                 <td>
                   <button type="button" className="text-start" onClick={() => setSelected(r)}>
-                    <div className="font-semibold text-[var(--color-brand-dark)] underline-offset-2 hover:underline">
+                    <div className="font-semibold text-[var(--color-brand)] underline-offset-2 hover:underline">
                       {r.fullName}
                     </div>
                     <div className="text-xs text-[var(--color-ink-muted)]">
-                      {r.city} · {r.occupation}
+                      {r.city}
+                      {r.occupation ? ` · ${r.occupation}` : ''}
                     </div>
                   </button>
                 </td>
@@ -167,38 +260,63 @@ export function RegistrationsPage() {
       {selected ? (
         <div className="admin-popup-root" role="dialog" aria-modal="true">
           <button type="button" className="admin-popup-backdrop" aria-label="Close" onClick={() => setSelected(null)} />
-          <div className="admin-popup-panel">
+          <div className="admin-popup-panel reg-detail-panel">
             <div className="admin-popup-head">
               <div>
-                <h3 className="text-lg font-black">{selected.fullName}</h3>
-                <p className="mt-1 text-xs text-[var(--color-ink-muted)]">{selected.course.title}</p>
+                <p className="reg-detail-eyebrow">{ar ? 'تفاصيل الطلب' : 'Application details'}</p>
+                <h3>{selected.fullName}</h3>
+                <p className="reg-detail-course">{selected.course.title}</p>
               </div>
               <Button type="button" size="sm" variant="outline" onClick={() => setSelected(null)}>
                 {ar ? 'إغلاق' : 'Close'}
               </Button>
             </div>
-            <div className="admin-popup-body space-y-2">
-              {Object.entries(
-                selected.answers && Object.keys(selected.answers).length
-                  ? selected.answers
-                  : {
-                      fullName: selected.fullName,
-                      phone: selected.phone,
-                      email: selected.email,
-                      city: selected.city,
-                      occupation: selected.occupation,
-                      experience: selected.experience,
-                      notes: selected.notes || '',
-                    },
-              ).map(([key, value]) => (
-                <div
-                  key={key}
-                  className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2"
-                >
-                  <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--color-ink-muted)]">{key}</span>
-                  <span className="text-sm font-semibold text-[var(--color-ink)]">{value || '—'}</span>
+
+            <div className="admin-popup-body">
+              <div className="reg-detail-meta">
+                <div>
+                  <span>{ar ? 'الحالة' : 'Status'}</span>
+                  <strong>{labelOf(selected.status)}</strong>
                 </div>
-              ))}
+                <div>
+                  <span>{ar ? 'تاريخ الطلب' : 'Submitted'}</span>
+                  <strong>
+                    {new Date(selected.createdAt).toLocaleString(ar ? 'ar-IQ' : 'en-US', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="reg-detail-status">
+                <label htmlFor="reg-status">{ar ? 'تغيير الحالة' : 'Change status'}</label>
+                <select
+                  id="reg-status"
+                  className="dc-select"
+                  value={selected.status}
+                  onChange={(e) => updateStatus.mutate({ id: selected.id, status: e.target.value })}
+                >
+                  {STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {labelOf(s)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {formFields.isLoading ? (
+                <p className="reg-detail-loading">{ar ? 'جاري تحميل الإجابات...' : 'Loading answers...'}</p>
+              ) : (
+                <dl className="reg-detail-list">
+                  {detailRows.map((row) => (
+                    <div key={row.key} className="reg-detail-row">
+                      <dt>{row.label}</dt>
+                      <dd>{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
             </div>
           </div>
         </div>

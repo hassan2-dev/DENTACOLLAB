@@ -257,7 +257,7 @@ export function CoursesAdminPage() {
             </div>
           </div>
 
-          <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <Input id="slug" label="Slug *" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
             <Select id="level" label={isAr ? 'المستوى *' : 'Level *'} value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })}>
               <option value="STUDENTS">{isAr ? 'طلاب' : 'Students'}</option>
@@ -282,14 +282,15 @@ export function CoursesAdminPage() {
               <option value="IQD">{isAr ? 'دينار عراقي (IQD)' : 'Iraqi Dinar (IQD)'}</option>
               <option value="USD">{isAr ? 'دولار (USD)' : 'US Dollar (USD)'}</option>
             </Select>
-            <MediaImageField
-              id="coverUrl"
-              label={isAr ? 'صورة الغلاف' : 'Cover image'}
-              value={form.coverUrl}
-              onChange={(coverUrl) => setForm({ ...form, coverUrl })}
-              className="md:col-span-2 xl:col-span-1"
-            />
           </div>
+
+          <MediaImageField
+            id="coverUrl"
+            label={isAr ? 'صورة الغلاف' : 'Cover image'}
+            value={form.coverUrl}
+            onChange={(coverUrl) => setForm({ ...form, coverUrl })}
+            className="mb-5"
+          />
 
           <div className="bilingual-grid">
             <section className="bilingual-column">

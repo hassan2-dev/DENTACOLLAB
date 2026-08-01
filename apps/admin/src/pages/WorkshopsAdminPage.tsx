@@ -280,12 +280,6 @@ export function CalendarAdminPage() {
               value={form.endsAt}
               onChange={(e) => setForm({ ...form, endsAt: e.target.value })}
             />
-            <MediaImageField
-              id="coverUrl"
-              label={isAr ? 'صورة الغلاف' : 'Cover image'}
-              value={form.coverUrl}
-              onChange={(coverUrl) => setForm({ ...form, coverUrl })}
-            />
             <label className="flex items-center gap-2 text-sm font-semibold">
               <input
                 type="checkbox"
@@ -305,6 +299,14 @@ export function CalendarAdminPage() {
               {isAr ? 'إعلان في الرئيسية' : 'Homepage announcement'}
             </label>
           </div>
+
+          <MediaImageField
+            id="coverUrl"
+            label={isAr ? 'صورة الغلاف' : 'Cover image'}
+            value={form.coverUrl}
+            onChange={(coverUrl) => setForm({ ...form, coverUrl })}
+            className="mb-4"
+          />
 
           <div className="bilingual-grid">
             <section className="bilingual-column">

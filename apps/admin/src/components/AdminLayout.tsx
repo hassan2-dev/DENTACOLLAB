@@ -326,10 +326,6 @@ export function AdminLayout() {
             </button>
           </div>
 
-          <div className="sidebar-help">
-            <p>{isAr ? 'اختر قسماً من القائمة، ثم أضف أو عدّل بسهولة.' : 'Pick a section, then add or edit easily.'}</p>
-          </div>
-
           <nav className="sidebar-nav">
             {groups.map((group) => {
               const open = collapsed ? true : Boolean(openGroups[group.id]);
