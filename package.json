@@ -8,6 +8,8 @@
     "dev:web": "turbo run dev --filter=@dentacollab/web",
     "dev:admin": "turbo run dev --filter=@dentacollab/admin",
     "build": "turbo run build",
+    "start": "cd apps/api && npx prisma migrate deploy && node dist/main.js",
+    "build:api": "pnpm --filter @dentacollab/api exec prisma generate && pnpm --filter @dentacollab/api build",
     "lint": "turbo run lint",
     "db:generate": "pnpm --filter @dentacollab/api prisma:generate",
     "db:migrate": "pnpm --filter @dentacollab/api exec prisma migrate dev",

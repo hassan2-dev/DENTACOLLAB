@@ -1,5 +1,5 @@
-# Nixpacks config for DentaCollab API (NestJS monorepo)
-# Use with Base Directory = / (repo root)
+# Nixpacks — DentaCollab API (Coolify / Railway)
+# Base Directory must be repo root: /  (empty)
 
 [phases.setup]
 nixPkgs = ["openssl"]
@@ -14,12 +14,15 @@ cmds = [
 [phases.build]
 cmds = [
   "pnpm --filter @dentacollab/api exec prisma generate",
-  "pnpm --filter @dentacollab/api build"
+  "pnpm --filter @dentacollab/api build",
+  "test -f apps/api/dist/main.js"
 ]
 
+# Coolify often overrides this — set the same Start Command in the UI
 [start]
 cmd = "cd apps/api && npx prisma migrate deploy && node dist/main.js"
 
 [variables]
 NODE_ENV = "production"
 NIXPACKS_NODE_VERSION = "22"
+PORT = "3000"
