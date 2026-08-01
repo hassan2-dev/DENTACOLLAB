@@ -17,6 +17,50 @@ export function clearTokens() {
   localStorage.removeItem('dc_access');
   localStorage.removeItem('dc_refresh');
   localStorage.removeItem('dc_user');
+  window.dispatchEvent(new Event('dc-auth-cleared'));
+}
+
+let refreshPromise: Promise<boolean> | null = null;
+
+/** Refresh access token once; concurrent callers share the same in-flight request. */
+export async function refreshAccessToken(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    const refreshToken = getRefresh();
+    if (!refreshToken) return false;
+
+    try {
+      const refreshed = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (!refreshed.ok) {
+        // Another tab may have already rotated the refresh token
+        await new Promise((r) => setTimeout(r, 150));
+        const latestRefresh = getRefresh();
+        if (latestRefresh && latestRefresh !== refreshToken && getToken()) return true;
+        return false;
+      }
+
+      const data = await refreshed.json();
+      if (!data?.accessToken || !data?.refreshToken) return false;
+
+      setTokens(data.accessToken, data.refreshToken);
+      return true;
+    } catch {
+      await new Promise((r) => setTimeout(r, 150));
+      const latestRefresh = getRefresh();
+      if (latestRefresh && latestRefresh !== refreshToken && getToken()) return true;
+      return false;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -31,16 +75,8 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   });
 
   if (res.status === 401 && getRefresh()) {
-    const refreshed = await fetch(`${API_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: getRefresh() }),
-    });
-    if (refreshed.ok) {
-      const data = await refreshed.json();
-      setTokens(data.accessToken, data.refreshToken);
-      return api(path, options);
-    }
+    const ok = await refreshAccessToken();
+    if (ok) return api(path, options);
     clearTokens();
   }
 

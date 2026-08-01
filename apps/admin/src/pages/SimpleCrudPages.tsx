@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Input, Textarea, Select } from '@dentacollab/ui';
 import { api } from '../lib/api';
 import { useAdminPreferences } from '../components/AdminLayout';
@@ -30,6 +31,7 @@ function CrudBox({
   eyebrowEn,
   listKey,
   endpoint,
+  basePath,
   fields,
   mapRow,
 }: {
@@ -39,21 +41,48 @@ function CrudBox({
   eyebrowEn: string;
   listKey: string;
   endpoint: string;
+  basePath: string;
   fields: Field[];
   mapRow: (row: Record<string, unknown>) => string;
 }) {
   const { language } = useAdminPreferences();
   const isAr = language === 'ar';
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { id } = useParams();
+  const isNew = location.pathname.endsWith('/new');
+  const isEdit = Boolean(id);
+  const isForm = isNew || isEdit;
+
   const qc = useQueryClient();
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: [listKey],
-    queryFn: () => api<Record<string, unknown>[]>(endpoint.includes('admin') ? endpoint : `${endpoint}/admin/all`.replace('//', '/')),
+    queryFn: () =>
+      api<Record<string, unknown>[]>(endpoint.includes('admin') ? endpoint : `${endpoint}/admin/all`.replace('//', '/')),
   });
   const [form, setForm] = useState<Record<string, string>>({});
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [ready, setReady] = useState(!isEdit);
   const translatable = fields.filter((f) => f.translatable);
   const shared = fields.filter((f) => !f.translatable);
+
+  useEffect(() => {
+    if (!isEdit || !data) return;
+    const row = data.find((item) => String(item.id) === id);
+    if (!row) {
+      notify.error(isAr ? 'العنصر غير موجود' : 'Item not found');
+      navigate(basePath);
+      return;
+    }
+    const next: Record<string, string> = {};
+    const en = getEnTranslation(row);
+    fields.forEach((f) => {
+      next[f.key] = String(row[f.key] ?? '');
+      if (f.translatable) next[`en_${f.key}`] = String(en[f.key] ?? '');
+    });
+    setForm(next);
+    setReady(true);
+  }, [isEdit, data, id, basePath, fields, isAr, navigate]);
 
   const bilingualMissing = useMemo(() => {
     if (!translatable.length) return [];
@@ -96,16 +125,14 @@ function CrudBox({
       }
 
       const base = endpoint.replace(/\/admin\/all$/, '');
-      if (editingId) return api(`${base}/${editingId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      if (isEdit && id) return api(`${base}/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
       return api(base, { method: 'POST', body: JSON.stringify(payload) });
     },
     onSuccess: () => {
-      const wasEdit = Boolean(editingId);
       qc.invalidateQueries({ queryKey: [listKey] });
-      setForm({});
-      setEditingId(null);
       setFormError(null);
-      notify.success(wasEdit ? (isAr ? 'تم الحفظ' : 'Saved') : isAr ? 'تمت الإضافة' : 'Added');
+      notify.success(isEdit ? (isAr ? 'تم حفظ التعديل' : 'Changes saved') : isAr ? 'تمت الإضافة بنجاح' : 'Added successfully');
+      navigate(basePath);
     },
     onError: (err: Error) => {
       notify.error(err.message || (isAr ? 'فشل الحفظ' : 'Save failed'));
@@ -113,7 +140,7 @@ function CrudBox({
   });
 
   const remove = useMutation({
-    mutationFn: (id: string) => api(`${endpoint.replace(/\/admin\/all$/, '')}/${id}`, { method: 'DELETE' }),
+    mutationFn: (rowId: string) => api(`${endpoint.replace(/\/admin\/all$/, '')}/${rowId}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [listKey] });
       notify.success(isAr ? 'تم الحذف' : 'Deleted');
@@ -177,6 +204,97 @@ function CrudBox({
   const arReady = firstTranslatable ? Boolean(String(form[firstTranslatable.key] || '').trim()) : true;
   const enReady = firstTranslatable ? Boolean(String(form[`en_${firstTranslatable.key}`] || '').trim()) : true;
 
+  if (isForm) {
+    if (isEdit && !ready) {
+      return <p className="admin-page text-sm text-[var(--color-ink-muted)]">{isAr ? 'جاري التحميل...' : 'Loading...'}</p>;
+    }
+
+    return (
+      <div className="admin-page space-y-6">
+        <PageHeader
+          eyebrow={isAr ? eyebrowAr : eyebrowEn}
+          title={isEdit ? (isAr ? `تعديل — ${titleAr}` : `Edit — ${titleEn}`) : isAr ? `إضافة — ${titleAr}` : `Add — ${titleEn}`}
+          description={
+            isAr
+              ? 'املأ الحقول بوضوح ثم احفظ. لا تحتاج خبرة تقنية.'
+              : 'Fill the fields clearly, then save. No technical skills needed.'
+          }
+        />
+
+        <form
+          className="admin-panel admin-form-card"
+          onSubmit={(e) => {
+            e.preventDefault();
+            save.mutate();
+          }}
+        >
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-black text-[var(--color-ink)]">
+                {isEdit ? (isAr ? 'نموذج التعديل' : 'Edit form') : isAr ? 'نموذج الإضافة' : 'Add form'}
+              </h2>
+              <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+                {isAr ? 'الحقول المعلّمة ضرورية لإظهار المحتوى في الموقع.' : 'Marked fields are needed to show content on the site.'}
+              </p>
+            </div>
+            {translatable.length ? (
+              <div className="flex gap-2">
+                <LocalePill locale="ar" complete={arReady} />
+                <LocalePill locale="en" complete={enReady} />
+              </div>
+            ) : null}
+          </div>
+
+          {shared.length ? (
+            <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {shared.map((f) => renderField(f, f.key, `${isAr ? f.labelAr : f.labelEn}`))}
+            </div>
+          ) : null}
+
+          {translatable.length ? (
+            <div className="bilingual-grid">
+              <section className="bilingual-column">
+                <header>
+                  <strong>العربية *</strong>
+                  <span>Arabic</span>
+                </header>
+                {translatable.map((f) => renderField(f, f.key, `${f.labelAr} *`))}
+              </section>
+              <section className="bilingual-column is-en">
+                <header>
+                  <strong>English *</strong>
+                  <span>الإنجليزية</span>
+                </header>
+                {translatable.map((f) => renderField(f, `en_${f.key}`, `${f.labelEn} *`))}
+              </section>
+            </div>
+          ) : null}
+
+          {formError ? <p className="form-error mt-4">{formError}</p> : null}
+
+          <div className="admin-form-footer">
+            <Button type="submit" disabled={save.isPending}>
+              {save.isPending
+                ? isAr
+                  ? 'جاري الحفظ...'
+                  : 'Saving...'
+                : isEdit
+                  ? isAr
+                    ? 'حفظ التعديل'
+                    : 'Save changes'
+                  : isAr
+                    ? 'حفظ الإضافة'
+                    : 'Save new item'}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => navigate(basePath)}>
+              {isAr ? 'رجوع للقائمة' : 'Back to list'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="admin-page space-y-6">
       <PageHeader
@@ -184,8 +302,8 @@ function CrudBox({
         title={isAr ? titleAr : titleEn}
         description={
           isAr
-            ? 'إدارة المحتوى الظاهر في الموقع.'
-            : 'Manage public website content.'
+            ? 'من هنا تشوف القائمة، تضيف عنصر جديد، أو تعدّل الموجود.'
+            : 'View the list, add a new item, or edit an existing one.'
         }
       />
 
@@ -194,13 +312,16 @@ function CrudBox({
           <div>
             <h2 className="text-lg font-black">{isAr ? 'القائمة' : 'List'}</h2>
             <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
-              {isAr ? 'اختر عنصراً للتعديل أو أضف جديداً بالأسفل.' : 'Select an item to edit, or add a new one below.'}
+              {isAr ? `${data?.length || 0} عنصر` : `${data?.length || 0} items`}
             </p>
           </div>
-          <span className="rounded-md bg-[var(--color-surface)] px-2.5 py-1 text-xs font-bold text-[var(--color-ink-muted)]">
-            {data?.length || 0}
-          </span>
+          <Button asChild>
+            <Link to={`${basePath}/new`}>{isAr ? '+ إضافة جديد' : '+ Add new'}</Link>
+          </Button>
         </div>
+
+        {isLoading ? <p className="text-sm text-[var(--color-ink-muted)]">{isAr ? 'جاري التحميل...' : 'Loading...'}</p> : null}
+
         <div className="overflow-x-auto">
           <table className="dc-table">
             <thead>
@@ -215,7 +336,7 @@ function CrudBox({
                 const complete = hasCompleteTranslation(row as { translations?: Array<{ locale?: string }> });
                 return (
                   <tr key={String(row.id)}>
-                    <td>{mapRow(row)}</td>
+                    <td className="font-semibold">{mapRow(row)}</td>
                     {translatable.length ? (
                       <td>
                         <div className="flex flex-wrap gap-1.5">
@@ -226,26 +347,19 @@ function CrudBox({
                     ) : null}
                     <td>
                       <div className="admin-row-actions">
+                        <Button asChild size="sm" variant="secondary">
+                          <Link to={`${basePath}/${String(row.id)}/edit`}>{isAr ? 'تعديل' : 'Edit'}</Link>
+                        </Button>
                         <Button
                           type="button"
                           size="sm"
-                          variant="secondary"
+                          variant="destructive"
                           onClick={() => {
-                            setEditingId(String(row.id));
-                            const next: Record<string, string> = {};
-                            const en = getEnTranslation(row);
-                            fields.forEach((f) => {
-                              next[f.key] = String(row[f.key] ?? '');
-                              if (f.translatable) next[`en_${f.key}`] = String(en[f.key] ?? '');
-                            });
-                            setForm(next);
-                            setFormError(null);
-                            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                            if (window.confirm(isAr ? 'هل تريد حذف هذا العنصر؟' : 'Delete this item?')) {
+                              remove.mutate(String(row.id));
+                            }
                           }}
                         >
-                          {isAr ? 'تعديل' : 'Edit'}
-                        </Button>
-                        <Button type="button" size="sm" variant="destructive" onClick={() => remove.mutate(String(row.id))}>
                           {isAr ? 'حذف' : 'Delete'}
                         </Button>
                       </div>
@@ -256,88 +370,18 @@ function CrudBox({
             </tbody>
           </table>
         </div>
-      </section>
 
-      <form
-        className="admin-panel"
-        onSubmit={(e) => {
-          e.preventDefault();
-          save.mutate();
-        }}
-      >
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-black text-[var(--color-ink)]">
-              {editingId ? (isAr ? 'تعديل' : 'Edit') : isAr ? 'إضافة جديد' : 'Add new'}
-            </h2>
-            <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
-              {isAr ? 'املأ الحقول المطلوبة ثم احفظ.' : 'Fill the required fields, then save.'}
+        {!isLoading && !(data || []).length ? (
+          <div className="py-10 text-center">
+            <p className="text-sm text-[var(--color-ink-muted)]">
+              {isAr ? 'لا يوجد عناصر بعد. ابدأ بإضافة أول عنصر.' : 'No items yet. Start by adding the first one.'}
             </p>
-          </div>
-          {translatable.length ? (
-            <div className="flex gap-2">
-              <LocalePill locale="ar" complete={arReady} />
-              <LocalePill locale="en" complete={enReady} />
-            </div>
-          ) : null}
-        </div>
-
-        {shared.length ? (
-          <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {shared.map((f) => renderField(f, f.key, `${isAr ? f.labelAr : f.labelEn}`))}
-          </div>
-        ) : null}
-
-        {translatable.length ? (
-          <div className="bilingual-grid">
-            <section className="bilingual-column">
-              <header>
-                <strong>العربية *</strong>
-                <span>Arabic</span>
-              </header>
-              {translatable.map((f) => renderField(f, f.key, `${f.labelAr} *`))}
-            </section>
-            <section className="bilingual-column is-en">
-              <header>
-                <strong>English *</strong>
-                <span>الإنجليزية</span>
-              </header>
-              {translatable.map((f) => renderField(f, `en_${f.key}`, `${f.labelEn} *`))}
-            </section>
-          </div>
-        ) : null}
-
-        {formError ? <p className="form-error mt-4">{formError}</p> : null}
-
-        <div className="admin-form-footer">
-          <Button type="submit" disabled={save.isPending}>
-            {save.isPending
-              ? isAr
-                ? 'جاري الحفظ...'
-                : 'Saving...'
-              : editingId
-                ? isAr
-                  ? 'حفظ التعديل'
-                  : 'Save changes'
-                : isAr
-                  ? 'إضافة'
-                  : 'Add'}
-          </Button>
-          {editingId ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setEditingId(null);
-                setForm({});
-                setFormError(null);
-              }}
-            >
-              {isAr ? 'إلغاء' : 'Cancel'}
+            <Button asChild className="mt-4">
+              <Link to={`${basePath}/new`}>{isAr ? 'إضافة الآن' : 'Add now'}</Link>
             </Button>
-          ) : null}
-        </div>
-      </form>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }
@@ -351,6 +395,7 @@ export function InstructorsAdminPage() {
       eyebrowEn="Academy"
       listKey="admin-instructors"
       endpoint="/instructors/admin/all"
+      basePath="/instructors"
       fields={[
         { key: 'name', labelAr: 'الاسم', labelEn: 'Name', translatable: true },
         { key: 'title', labelAr: 'المسمى', labelEn: 'Title', translatable: true },
@@ -372,12 +417,13 @@ export function FaqAdminPage() {
       eyebrowEn="Content"
       listKey="admin-faq"
       endpoint="/faq/admin/all"
+      basePath="/faq"
       fields={[
         { key: 'question', labelAr: 'السؤال', labelEn: 'Question', translatable: true },
-        { key: 'answer', labelAr: 'الإجابة', labelEn: 'Answer', type: 'textarea', translatable: true },
+        { key: 'answer', labelAr: 'الجواب', labelEn: 'Answer', type: 'textarea', translatable: true },
         { key: 'category', labelAr: 'التصنيف', labelEn: 'Category', translatable: true },
       ]}
-      mapRow={(r) => String(r.question)}
+      mapRow={(r) => String(r.question || '')}
     />
   );
 }
@@ -391,11 +437,12 @@ export function TestimonialsAdminPage() {
       eyebrowEn="Academy"
       listKey="admin-testimonials"
       endpoint="/testimonials/admin/all"
+      basePath="/testimonials"
       fields={[
         { key: 'name', labelAr: 'الاسم', labelEn: 'Name', translatable: true },
         { key: 'profession', labelAr: 'المهنة', labelEn: 'Profession', translatable: true },
-        { key: 'rating', labelAr: 'التقييم', labelEn: 'Rating', type: 'number' },
         { key: 'review', labelAr: 'الرأي', labelEn: 'Review', type: 'textarea', translatable: true },
+        { key: 'rating', labelAr: 'التقييم', labelEn: 'Rating', type: 'number' },
         { key: 'imageUrl', labelAr: 'الصورة', labelEn: 'Image', type: 'image' },
         { key: 'videoUrl', labelAr: 'فيديو', labelEn: 'Video URL' },
       ]}
@@ -413,12 +460,19 @@ export function GraduatesAdminPage() {
       eyebrowEn="Academy"
       listKey="admin-graduates"
       endpoint="/graduates/admin/all"
+      basePath="/graduates"
       fields={[
         { key: 'fullName', labelAr: 'الاسم', labelEn: 'Full name', translatable: true },
         { key: 'courseTitle', labelAr: 'الدورة التي أخذها', labelEn: 'Course taken', translatable: true },
         { key: 'rating', labelAr: 'التقييم (1-5)', labelEn: 'Rating (1-5)', type: 'number' },
         { key: 'graduationDate', labelAr: 'تاريخ التخرج', labelEn: 'Graduation date' },
-        { key: 'description', labelAr: 'ماذا أنجز / مشروعه', labelEn: 'What they did / project', type: 'textarea', translatable: true },
+        {
+          key: 'description',
+          labelAr: 'ماذا أنجز / مشروعه',
+          labelEn: 'What they did / project',
+          type: 'textarea',
+          translatable: true,
+        },
         { key: 'imageUrl', labelAr: 'الصورة', labelEn: 'Image', type: 'image' },
         { key: 'certificateUrl', labelAr: 'صورة الشهادة', labelEn: 'Certificate image', type: 'image' },
       ]}

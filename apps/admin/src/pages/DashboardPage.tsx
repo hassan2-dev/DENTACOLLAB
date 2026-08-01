@@ -206,8 +206,8 @@ export function DashboardPage() {
           </h1>
           <p className="mt-1 max-w-xl text-sm text-[var(--color-ink-muted)]">
             {ar
-              ? 'ملخص تشغيلي واضح: الزوار، التسجيلات، والمحتوى.'
-              : 'A clean operational overview: visitors, registrations, and content.'}
+              ? 'هنا تشوف بسرعة: كم زائر، كم طلب تسجيل جديد، وكم رسالة. من الأزرار تحت تفتح الصفحة اللي تحتاجها.'
+              : 'Quick view: visitors, new registrations, and messages. Use the shortcuts below to open what you need.'}
           </p>
         </div>
         <Badge variant="outline">

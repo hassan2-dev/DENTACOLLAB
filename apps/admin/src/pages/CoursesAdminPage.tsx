@@ -1,5 +1,6 @@
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Input, Textarea, Select } from '@dentacollab/ui';
 import { api } from '../lib/api';
 import { useAdminPreferences } from '../components/AdminLayout';
@@ -62,15 +63,21 @@ const empty = {
 export function CoursesAdminPage() {
   const { language } = useAdminPreferences();
   const isAr = language === 'ar';
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { id } = useParams();
+  const isNew = location.pathname.endsWith('/new');
+  const isEdit = Boolean(id);
+  const isForm = isNew || isEdit;
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ['admin-courses'],
     queryFn: () => api<Course[]>('/courses/admin/all'),
   });
   const [form, setForm] = useState(empty);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formCourse, setFormCourse] = useState<Course | null>(null);
+  const [formReady, setFormReady] = useState(!isEdit);
 
   const bilingualReady = useMemo(() => {
     const missing = missingBilingualFields(
@@ -127,16 +134,15 @@ export function CoursesAdminPage() {
         ],
       };
 
-      if (editingId) return api(`/courses/${editingId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      if (isEdit && id) return api(`/courses/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
       return api('/courses', { method: 'POST', body: JSON.stringify(payload) });
     },
     onSuccess: () => {
-      const wasEdit = Boolean(editingId);
       qc.invalidateQueries({ queryKey: ['admin-courses'] });
       setForm(empty);
-      setEditingId(null);
       setFormError(null);
-      notify.success(wasEdit ? (isAr ? 'تم حفظ الدورة' : 'Course saved') : isAr ? 'تم إنشاء الدورة' : 'Course created');
+      notify.success(isEdit ? (isAr ? 'تم حفظ الدورة' : 'Course saved') : isAr ? 'تم إنشاء الدورة' : 'Course created');
+      navigate('/courses');
     },
     onError: (err: Error) => {
       notify.error(err.message || (isAr ? 'فشل الحفظ' : 'Save failed'));
@@ -168,9 +174,15 @@ export function CoursesAdminPage() {
     onError: () => notify.error(isAr ? 'فشل الحذف' : 'Delete failed'),
   });
 
-  function edit(c: Course) {
+  useEffect(() => {
+    if (!isEdit || !data) return;
+    const c = data.find((item) => item.id === id);
+    if (!c) {
+      notify.error(isAr ? 'الدورة غير موجودة' : 'Course not found');
+      navigate('/courses');
+      return;
+    }
     const en = c.translations?.find((item) => item.locale === 'en');
-    setEditingId(c.id);
     setFormError(null);
     setForm({
       title: c.title,
@@ -193,6 +205,11 @@ export function CoursesAdminPage() {
       en_duration: en?.duration || '',
       en_certificate: en?.certificate || '',
     });
+    setFormReady(true);
+  }, [isEdit, data, id, isAr, navigate]);
+
+  function edit(c: Course) {
+    navigate(`/courses/${c.id}/edit`);
   }
 
   const statusLabel = (status: string) => {
@@ -201,29 +218,162 @@ export function CoursesAdminPage() {
     return isAr ? 'مسودة' : 'Draft';
   };
 
+  if (isForm) {
+    if (isEdit && !formReady) {
+      return <p className="admin-page text-sm text-[var(--color-ink-muted)]">{isAr ? 'جاري التحميل...' : 'Loading...'}</p>;
+    }
+
+    return (
+      <div className="admin-page space-y-6">
+        <PageHeader
+          eyebrow={isAr ? 'الأكاديمية' : 'Academy'}
+          title={isEdit ? (isAr ? 'تعديل دورة' : 'Edit course') : isAr ? 'إضافة دورة' : 'Add course'}
+          description={
+            isAr
+              ? 'املأ العربية والإنجليزية ثم احفظ. رجوع للقائمة بعد الحفظ.'
+              : 'Fill Arabic and English, then save. You return to the list after saving.'
+          }
+        />
+
+        <form
+          className="admin-panel admin-form-card"
+          onSubmit={(e) => {
+            e.preventDefault();
+            save.mutate();
+          }}
+        >
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-black text-[var(--color-ink)]">
+                {isAr ? 'بيانات الدورة' : 'Course details'}
+              </h2>
+              <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+                {isAr ? 'العربية والإنجليزية إلزاميتان قبل الحفظ.' : 'Arabic and English are required before saving.'}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <LocalePill locale="ar" complete={Boolean(form.title.trim())} />
+              <LocalePill locale="en" complete={Boolean(form.en_title.trim())} />
+            </div>
+          </div>
+
+          <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <Input id="slug" label="Slug *" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
+            <Select id="level" label={isAr ? 'المستوى *' : 'Level *'} value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })}>
+              <option value="STUDENTS">{isAr ? 'طلاب' : 'Students'}</option>
+              <option value="BASIC">{isAr ? 'أساسي' : 'Basic'}</option>
+              <option value="ADVANCED">{isAr ? 'متقدم' : 'Advanced'}</option>
+            </Select>
+            <Input
+              id="price"
+              label={isAr ? 'السعر' : 'Price'}
+              type="number"
+              min={0}
+              value={form.price}
+              onChange={(e) => setForm({ ...form, price: e.target.value })}
+              placeholder={isAr ? 'مثال: 250000' : 'e.g. 250000'}
+            />
+            <Select
+              id="currency"
+              label={isAr ? 'العملة' : 'Currency'}
+              value={form.currency}
+              onChange={(e) => setForm({ ...form, currency: e.target.value })}
+            >
+              <option value="IQD">{isAr ? 'دينار عراقي (IQD)' : 'Iraqi Dinar (IQD)'}</option>
+              <option value="USD">{isAr ? 'دولار (USD)' : 'US Dollar (USD)'}</option>
+            </Select>
+            <MediaImageField
+              id="coverUrl"
+              label={isAr ? 'صورة الغلاف' : 'Cover image'}
+              value={form.coverUrl}
+              onChange={(coverUrl) => setForm({ ...form, coverUrl })}
+              className="md:col-span-2 xl:col-span-1"
+            />
+          </div>
+
+          <div className="bilingual-grid">
+            <section className="bilingual-column">
+              <header>
+                <strong>العربية *</strong>
+                <span>عربي فقط</span>
+              </header>
+              <Input id="title" label="العنوان *" value={form.title} onChange={(e) => setForm({ ...form, title: filterArabicOnly(e.target.value) })} />
+              <Textarea id="description" label="الوصف *" value={form.description} onChange={(e) => setForm({ ...form, description: filterArabicOnly(e.target.value) })} />
+              <Textarea id="overview" label="نظرة عامة *" value={form.overview} onChange={(e) => setForm({ ...form, overview: filterArabicOnly(e.target.value) })} />
+              <Textarea id="objectives" label="الأهداف * (سطر لكل هدف)" value={form.objectives} onChange={(e) => setForm({ ...form, objectives: filterArabicOnly(e.target.value) })} />
+              <Textarea id="requirements" label="المتطلبات *" value={form.requirements} onChange={(e) => setForm({ ...form, requirements: filterArabicOnly(e.target.value) })} />
+              <Input id="duration" label="المدة *" value={form.duration} onChange={(e) => setForm({ ...form, duration: filterArabicOnly(e.target.value) })} />
+              <Input id="certificate" label="نص الشهادة" value={form.certificate} onChange={(e) => setForm({ ...form, certificate: filterArabicOnly(e.target.value) })} />
+            </section>
+
+            <section className="bilingual-column is-en">
+              <header>
+                <strong>English *</strong>
+                <span>English only</span>
+              </header>
+              <Input id="en_title" label="Title *" value={form.en_title} onChange={(e) => setForm({ ...form, en_title: filterEnglishOnly(e.target.value) })} />
+              <Textarea id="en_description" label="Description *" value={form.en_description} onChange={(e) => setForm({ ...form, en_description: filterEnglishOnly(e.target.value) })} />
+              <Textarea id="en_overview" label="Overview *" value={form.en_overview} onChange={(e) => setForm({ ...form, en_overview: filterEnglishOnly(e.target.value) })} />
+              <Textarea id="en_objectives" label="Objectives * (one per line)" value={form.en_objectives} onChange={(e) => setForm({ ...form, en_objectives: filterEnglishOnly(e.target.value) })} />
+              <Textarea id="en_requirements" label="Requirements *" value={form.en_requirements} onChange={(e) => setForm({ ...form, en_requirements: filterEnglishOnly(e.target.value) })} />
+              <Input id="en_duration" label="Duration *" value={form.en_duration} onChange={(e) => setForm({ ...form, en_duration: filterEnglishOnly(e.target.value) })} />
+              <Input id="en_certificate" label="Certificate text" value={form.en_certificate} onChange={(e) => setForm({ ...form, en_certificate: filterEnglishOnly(e.target.value) })} />
+            </section>
+          </div>
+
+          {formError ? <p className="form-error mt-4">{formError}</p> : null}
+
+          <div className="admin-form-footer">
+            <Button type="submit" disabled={save.isPending}>
+              {save.isPending
+                ? isAr
+                  ? 'جاري الحفظ...'
+                  : 'Saving...'
+                : isEdit
+                  ? isAr
+                    ? 'حفظ التعديل'
+                    : 'Save changes'
+                  : isAr
+                    ? 'إنشاء الدورة'
+                    : 'Create course'}
+            </Button>
+            <Button type="button" variant="outline" asChild>
+              <Link to="/courses">{isAr ? 'رجوع للقائمة' : 'Back to list'}</Link>
+            </Button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="admin-page space-y-6">
       <PageHeader
         eyebrow={isAr ? 'الأكاديمية' : 'Academy'}
-        title={isAr ? 'إدارة الدورات' : 'Manage courses'}
+        title={isAr ? 'الدورات' : 'Courses'}
         description={
           isAr
-            ? 'أنشئ وعدّل الدورات مع محتوى عربي وإنجليزي.'
-            : 'Create and edit courses with Arabic and English content.'
+            ? 'من هنا تشوف كل الدورات. إضافة جديدة صفحة لوحدها، وتعديل صفحة لوحدها.'
+            : 'See all courses here. Add and edit each open on their own page.'
         }
       />
 
       <section className="admin-panel">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-black">{isAr ? 'الدورات الحالية' : 'Current courses'}</h2>
+            <h2 className="text-lg font-black">{isAr ? 'قائمة الدورات' : 'Course list'}</h2>
             <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
-              {isAr ? 'اختر دورة للتعديل أو أنشئ دورة جديدة بالأسفل.' : 'Pick a course to edit, or create a new one below.'}
+              {isAr ? 'اضغط تعديل لتفتح صفحة التعديل، أو إضافة دورة جديدة.' : 'Click Edit to open the edit page, or add a new course.'}
             </p>
           </div>
-          <span className="rounded-md bg-[var(--color-surface)] px-2.5 py-1 text-xs font-bold text-[var(--color-ink-muted)]">
-            {data?.length || 0}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-md bg-[var(--color-surface)] px-2.5 py-1 text-xs font-bold text-[var(--color-ink-muted)]">
+              {data?.length || 0}
+            </span>
+            <Button type="button" size="sm" asChild>
+              <Link to="/courses/new">{isAr ? '+ إضافة دورة' : '+ Add course'}</Link>
+            </Button>
+          </div>
         </div>
         {isLoading ? <p className="text-sm text-[var(--color-ink-muted)]">{isAr ? 'جاري التحميل...' : 'Loading...'}</p> : null}
         <div className="overflow-x-auto">
@@ -286,124 +436,6 @@ export function CoursesAdminPage() {
           </table>
         </div>
       </section>
-
-      <form
-        className="admin-panel"
-        onSubmit={(e) => {
-          e.preventDefault();
-          save.mutate();
-        }}
-      >
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-black text-[var(--color-ink)]">
-              {editingId ? (isAr ? 'تعديل دورة' : 'Edit course') : isAr ? 'دورة جديدة' : 'New course'}
-            </h2>
-            <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
-              {isAr ? 'العربية والإنجليزية إلزاميتان قبل الحفظ.' : 'Arabic and English are required before saving.'}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <LocalePill locale="ar" complete={Boolean(form.title.trim())} />
-            <LocalePill locale="en" complete={Boolean(form.en_title.trim())} />
-          </div>
-        </div>
-
-        <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <Input id="slug" label="Slug *" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
-          <Select id="level" label={isAr ? 'المستوى *' : 'Level *'} value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })}>
-            <option value="STUDENTS">{isAr ? 'طلاب' : 'Students'}</option>
-            <option value="BASIC">{isAr ? 'أساسي' : 'Basic'}</option>
-            <option value="ADVANCED">{isAr ? 'متقدم' : 'Advanced'}</option>
-          </Select>
-          <Input
-            id="price"
-            label={isAr ? 'السعر' : 'Price'}
-            type="number"
-            min={0}
-            value={form.price}
-            onChange={(e) => setForm({ ...form, price: e.target.value })}
-            placeholder={isAr ? 'مثال: 250000' : 'e.g. 250000'}
-          />
-          <Select
-            id="currency"
-            label={isAr ? 'العملة' : 'Currency'}
-            value={form.currency}
-            onChange={(e) => setForm({ ...form, currency: e.target.value })}
-          >
-            <option value="IQD">{isAr ? 'دينار عراقي (IQD)' : 'Iraqi Dinar (IQD)'}</option>
-            <option value="USD">{isAr ? 'دولار (USD)' : 'US Dollar (USD)'}</option>
-          </Select>
-          <MediaImageField
-            id="coverUrl"
-            label={isAr ? 'صورة الغلاف' : 'Cover image'}
-            value={form.coverUrl}
-            onChange={(coverUrl) => setForm({ ...form, coverUrl })}
-            className="md:col-span-2 xl:col-span-1"
-          />
-        </div>
-
-        <div className="bilingual-grid">
-          <section className="bilingual-column">
-            <header>
-              <strong>العربية *</strong>
-              <span>عربي فقط</span>
-            </header>
-            <Input id="title" label="العنوان *" value={form.title} onChange={(e) => setForm({ ...form, title: filterArabicOnly(e.target.value) })} />
-            <Textarea id="description" label="الوصف *" value={form.description} onChange={(e) => setForm({ ...form, description: filterArabicOnly(e.target.value) })} />
-            <Textarea id="overview" label="نظرة عامة *" value={form.overview} onChange={(e) => setForm({ ...form, overview: filterArabicOnly(e.target.value) })} />
-            <Textarea id="objectives" label="الأهداف * (سطر لكل هدف)" value={form.objectives} onChange={(e) => setForm({ ...form, objectives: filterArabicOnly(e.target.value) })} />
-            <Textarea id="requirements" label="المتطلبات *" value={form.requirements} onChange={(e) => setForm({ ...form, requirements: filterArabicOnly(e.target.value) })} />
-            <Input id="duration" label="المدة *" value={form.duration} onChange={(e) => setForm({ ...form, duration: filterArabicOnly(e.target.value) })} />
-            <Input id="certificate" label="نص الشهادة" value={form.certificate} onChange={(e) => setForm({ ...form, certificate: filterArabicOnly(e.target.value) })} />
-          </section>
-
-          <section className="bilingual-column is-en">
-            <header>
-              <strong>English *</strong>
-              <span>English only</span>
-            </header>
-            <Input id="en_title" label="Title *" value={form.en_title} onChange={(e) => setForm({ ...form, en_title: filterEnglishOnly(e.target.value) })} />
-            <Textarea id="en_description" label="Description *" value={form.en_description} onChange={(e) => setForm({ ...form, en_description: filterEnglishOnly(e.target.value) })} />
-            <Textarea id="en_overview" label="Overview *" value={form.en_overview} onChange={(e) => setForm({ ...form, en_overview: filterEnglishOnly(e.target.value) })} />
-            <Textarea id="en_objectives" label="Objectives * (one per line)" value={form.en_objectives} onChange={(e) => setForm({ ...form, en_objectives: filterEnglishOnly(e.target.value) })} />
-            <Textarea id="en_requirements" label="Requirements *" value={form.en_requirements} onChange={(e) => setForm({ ...form, en_requirements: filterEnglishOnly(e.target.value) })} />
-            <Input id="en_duration" label="Duration *" value={form.en_duration} onChange={(e) => setForm({ ...form, en_duration: filterEnglishOnly(e.target.value) })} />
-            <Input id="en_certificate" label="Certificate text" value={form.en_certificate} onChange={(e) => setForm({ ...form, en_certificate: filterEnglishOnly(e.target.value) })} />
-          </section>
-        </div>
-
-        {formError ? <p className="form-error mt-4">{formError}</p> : null}
-
-        <div className="admin-form-footer">
-          <Button type="submit" disabled={save.isPending}>
-            {save.isPending
-              ? isAr
-                ? 'جاري الحفظ...'
-                : 'Saving...'
-              : editingId
-                ? isAr
-                  ? 'حفظ التعديل'
-                  : 'Save changes'
-                : isAr
-                  ? 'إنشاء الدورة'
-                  : 'Create course'}
-          </Button>
-          {editingId ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setEditingId(null);
-                setForm(empty);
-                setFormError(null);
-              }}
-            >
-              {isAr ? 'إلغاء' : 'Cancel'}
-            </Button>
-          ) : null}
-        </div>
-      </form>
 
       <CourseFormBuilderModal
         open={Boolean(formCourse)}

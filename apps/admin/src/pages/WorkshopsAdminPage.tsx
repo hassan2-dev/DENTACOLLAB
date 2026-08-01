@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Input, Textarea } from '@dentacollab/ui';
 import { api } from '../lib/api';
 import { useAdminPreferences } from '../components/AdminLayout';
@@ -74,18 +75,51 @@ async function copyText(text: string) {
 export function CalendarAdminPage() {
   const { language } = useAdminPreferences();
   const isAr = language === 'ar';
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { id } = useParams();
+  const isNew = location.pathname.endsWith('/new');
+  const isEdit = Boolean(id);
+  const isForm = isNew || isEdit;
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ['admin-calendar'],
     queryFn: () => api<Workshop[]>('/calendar/admin/all'),
   });
   const [form, setForm] = useState(empty);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [slugLocked, setSlugLocked] = useState(false);
   const [lastCreatedUrl, setLastCreatedUrl] = useState<string | null>(null);
+  const [formReady, setFormReady] = useState(!isEdit);
 
   const now = Date.now();
   const rows = useMemo(() => data || [], [data]);
+
+  useEffect(() => {
+    if (!isEdit || !data) return;
+    const row = data.find((item) => item.id === id);
+    if (!row) {
+      notify.error(isAr ? 'الورشة غير موجودة' : 'Workshop not found');
+      navigate('/calendar');
+      return;
+    }
+    setSlugLocked(true);
+    setLastCreatedUrl(workshopPublicUrl(row.slug));
+    setForm({
+      title: row.title,
+      titleEn: row.titleEn || '',
+      slug: row.slug,
+      description: row.description || '',
+      descriptionEn: row.descriptionEn || '',
+      coverUrl: row.coverUrl || '',
+      presenterAr: row.presenterAr || '',
+      presenterEn: row.presenterEn || '',
+      startsAt: toLocalInput(row.startsAt),
+      endsAt: toLocalInput(row.endsAt),
+      isPublished: row.isPublished,
+      isFeatured: row.isFeatured,
+    });
+    setFormReady(true);
+  }, [isEdit, data, id, isAr, navigate]);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -110,18 +144,16 @@ export function CalendarAdminPage() {
         isPublished: form.isPublished,
         isFeatured: form.isFeatured,
       };
-      if (editingId) return api<Workshop>(`/calendar/${editingId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      if (isEdit && id) return api<Workshop>(`/calendar/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
       return api<Workshop>('/calendar', { method: 'POST', body: JSON.stringify(payload) });
     },
     onSuccess: async (saved) => {
-      const wasEdit = Boolean(editingId);
       const url = workshopPublicUrl(saved.slug);
       qc.invalidateQueries({ queryKey: ['admin-calendar'] });
       setForm(empty);
-      setEditingId(null);
       setSlugLocked(false);
-      if (!wasEdit) {
-        setLastCreatedUrl(url);
+      setLastCreatedUrl(url);
+      if (!isEdit) {
         const copied = await copyText(url);
         notify.success(
           copied
@@ -133,16 +165,16 @@ export function CalendarAdminPage() {
               : `Workshop created. URL: ${url}`,
         );
       } else {
-        setLastCreatedUrl(url);
         notify.success(isAr ? 'تم حفظ الورشة' : 'Workshop saved');
       }
+      navigate('/calendar');
     },
     onError: (err: Error) => notify.error(err.message || (isAr ? 'فشل الحفظ' : 'Save failed')),
   });
 
   const patch = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Workshop> }) =>
-      api(`/calendar/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    mutationFn: ({ id: rowId, data: patchData }: { id: string; data: Partial<Workshop> }) =>
+      api(`/calendar/${rowId}`, { method: 'PATCH', body: JSON.stringify(patchData) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-calendar'] });
       notify.success(isAr ? 'تم التحديث' : 'Updated');
@@ -151,34 +183,13 @@ export function CalendarAdminPage() {
   });
 
   const remove = useMutation({
-    mutationFn: (id: string) => api(`/calendar/${id}`, { method: 'DELETE' }),
+    mutationFn: (rowId: string) => api(`/calendar/${rowId}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-calendar'] });
       notify.success(isAr ? 'تم الحذف' : 'Deleted');
     },
     onError: () => notify.error(isAr ? 'فشل الحذف' : 'Delete failed'),
   });
-
-  function edit(row: Workshop) {
-    setEditingId(row.id);
-    setSlugLocked(true);
-    setLastCreatedUrl(workshopPublicUrl(row.slug));
-    setForm({
-      title: row.title,
-      titleEn: row.titleEn || '',
-      slug: row.slug,
-      description: row.description || '',
-      descriptionEn: row.descriptionEn || '',
-      coverUrl: row.coverUrl || '',
-      presenterAr: row.presenterAr || '',
-      presenterEn: row.presenterEn || '',
-      startsAt: toLocalInput(row.startsAt),
-      endsAt: toLocalInput(row.endsAt),
-      isPublished: row.isPublished,
-      isFeatured: row.isFeatured,
-    });
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-  }
 
   function statusOf(row: Workshop) {
     if (new Date(row.endsAt).getTime() < now) return isAr ? 'منتهية' : 'Ended';
@@ -195,11 +206,177 @@ export function CalendarAdminPage() {
   function setEn(field: 'titleEn' | 'descriptionEn' | 'presenterEn', raw: string) {
     const next = filterEnglishOnly(raw);
     setForm((prev) => {
-      if (field === 'titleEn' && !editingId && !slugLocked) {
+      if (field === 'titleEn' && !isEdit && !slugLocked) {
         return { ...prev, titleEn: next, slug: slugify(next) };
       }
       return { ...prev, [field]: next };
     });
+  }
+
+  if (isForm) {
+    if (isEdit && !formReady) {
+      return <p className="admin-page text-sm text-[var(--color-ink-muted)]">{isAr ? 'جاري التحميل...' : 'Loading...'}</p>;
+    }
+
+    return (
+      <div className="admin-page space-y-6">
+        <PageHeader
+          eyebrow={isAr ? 'الفعاليات' : 'Events'}
+          title={isEdit ? (isAr ? 'تعديل ورشة' : 'Edit workshop') : isAr ? 'إضافة ورشة' : 'Add workshop'}
+          description={
+            isAr
+              ? 'اكتب العنوان الإنجليزي ليُنشأ الرابط تلقائياً، ثم احفظ.'
+              : 'Enter the English title to auto-generate the URL, then save.'
+          }
+        />
+
+        <form
+          className="admin-panel admin-form-card"
+          onSubmit={(e) => {
+            e.preventDefault();
+            save.mutate();
+          }}
+        >
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-black">{isAr ? 'بيانات الورشة' : 'Workshop details'}</h2>
+              <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+                {isAr ? 'انشر الورشة ليظهر رابطها في الموقع.' : 'Publish so the workshop link appears on the site.'}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <LocalePill locale="ar" complete={Boolean(form.title.trim() && form.presenterAr.trim())} />
+              <LocalePill locale="en" complete={Boolean(form.titleEn.trim() && form.presenterEn.trim())} />
+            </div>
+          </div>
+
+          <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="space-y-1">
+              <Input
+                id="slug"
+                label={isAr ? 'رابط الورشة (تلقائي)' : 'Workshop URL slug (auto)'}
+                value={form.slug}
+                onChange={(e) => {
+                  setSlugLocked(true);
+                  setForm({ ...form, slug: filterEnglishOnly(e.target.value.toLowerCase()).replace(/\s+/g, '-') });
+                }}
+                placeholder="guided-surgery-workshop"
+              />
+              {form.slug ? (
+                <p className="truncate text-[11px] text-[var(--color-ink-muted)]">{workshopPublicUrl(form.slug)}</p>
+              ) : null}
+            </div>
+            <Input
+              id="startsAt"
+              label={isAr ? 'البداية *' : 'Starts *'}
+              type="datetime-local"
+              value={form.startsAt}
+              onChange={(e) => setForm({ ...form, startsAt: e.target.value })}
+            />
+            <Input
+              id="endsAt"
+              label={isAr ? 'النهاية *' : 'Ends *'}
+              type="datetime-local"
+              value={form.endsAt}
+              onChange={(e) => setForm({ ...form, endsAt: e.target.value })}
+            />
+            <MediaImageField
+              id="coverUrl"
+              label={isAr ? 'صورة الغلاف' : 'Cover image'}
+              value={form.coverUrl}
+              onChange={(coverUrl) => setForm({ ...form, coverUrl })}
+            />
+            <label className="flex items-center gap-2 text-sm font-semibold">
+              <input
+                type="checkbox"
+                checked={form.isPublished}
+                onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
+              />
+              {isAr ? 'منشورة على الموقع (يظهر الرابط)' : 'Published on website (shows URL)'}
+            </label>
+            <label className="flex items-center gap-2 text-sm font-semibold">
+              <input
+                type="checkbox"
+                checked={form.isFeatured}
+                onChange={(e) =>
+                  setForm({ ...form, isFeatured: e.target.checked, isPublished: e.target.checked || form.isPublished })
+                }
+              />
+              {isAr ? 'إعلان في الرئيسية' : 'Homepage announcement'}
+            </label>
+          </div>
+
+          <div className="bilingual-grid">
+            <section className="bilingual-column">
+              <header>
+                <strong>العربية *</strong>
+                <span>عربي فقط</span>
+              </header>
+              <Input id="title" label="عنوان الورشة *" value={form.title} onChange={(e) => setAr('title', e.target.value)} />
+              <Input
+                id="presenterAr"
+                label="مقدّم الورشة *"
+                value={form.presenterAr}
+                onChange={(e) => setAr('presenterAr', e.target.value)}
+                placeholder="د. عمار العبيدي"
+              />
+              <Textarea
+                id="description"
+                label="تفاصيل الورشة"
+                value={form.description}
+                onChange={(e) => setAr('description', e.target.value)}
+                rows={5}
+              />
+            </section>
+            <section className="bilingual-column is-en">
+              <header>
+                <strong>English *</strong>
+                <span>English only — drives the URL</span>
+              </header>
+              <Input
+                id="titleEn"
+                label="Workshop title *"
+                value={form.titleEn}
+                onChange={(e) => setEn('titleEn', e.target.value)}
+              />
+              <Input
+                id="presenterEn"
+                label="Presenter *"
+                value={form.presenterEn}
+                onChange={(e) => setEn('presenterEn', e.target.value)}
+                placeholder="Dr. Ammar Al-Obaidi"
+              />
+              <Textarea
+                id="descriptionEn"
+                label="Workshop details"
+                value={form.descriptionEn}
+                onChange={(e) => setEn('descriptionEn', e.target.value)}
+                rows={5}
+              />
+            </section>
+          </div>
+
+          <div className="admin-form-footer">
+            <Button type="submit" disabled={save.isPending}>
+              {save.isPending
+                ? isAr
+                  ? 'جاري الحفظ...'
+                  : 'Saving...'
+                : isEdit
+                  ? isAr
+                    ? 'حفظ التعديل'
+                    : 'Save changes'
+                  : isAr
+                    ? 'حفظ الورشة'
+                    : 'Save workshop'}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => navigate('/calendar')}>
+              {isAr ? 'رجوع للقائمة' : 'Back to list'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    );
   }
 
   return (
@@ -209,8 +386,8 @@ export function CalendarAdminPage() {
         title={isAr ? 'الورش' : 'Workshops'}
         description={
           isAr
-            ? 'يُنشأ رابط الورشة تلقائياً من الاسم الإنجليزي. انشر الورشة ليظهر رابطها في الموقع.'
-            : 'Workshop URL is auto-generated from the English title. Publish to show it on the website.'
+            ? 'من هنا تضيف ورشة جديدة، تنشرها، وتنسخ رابطها للمشاركة.'
+            : 'Add workshops, publish them, and copy their share links.'
         }
       />
 
@@ -237,10 +414,13 @@ export function CalendarAdminPage() {
 
       <section className="admin-panel">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-black">{isAr ? 'الورش الحالية' : 'Current workshops'}</h2>
-          <span className="rounded-md bg-[var(--color-surface)] px-2.5 py-1 text-xs font-bold text-[var(--color-ink-muted)]">
-            {rows.length}
-          </span>
+          <div>
+            <h2 className="text-lg font-black">{isAr ? 'الورش الحالية' : 'Current workshops'}</h2>
+            <p className="mt-1 text-xs text-[var(--color-ink-muted)]">{rows.length}</p>
+          </div>
+          <Button asChild>
+            <Link to="/calendar/new">{isAr ? '+ إضافة ورشة' : '+ Add workshop'}</Link>
+          </Button>
         </div>
         {isLoading ? <p className="text-sm text-[var(--color-ink-muted)]">{isAr ? 'جاري التحميل...' : 'Loading...'}</p> : null}
         <div className="overflow-x-auto">
@@ -307,8 +487,8 @@ export function CalendarAdminPage() {
                     </td>
                     <td>
                       <div className="admin-row-actions">
-                        <Button type="button" size="sm" variant="secondary" onClick={() => edit(row)}>
-                          {isAr ? 'تعديل' : 'Edit'}
+                        <Button asChild size="sm" variant="secondary">
+                          <Link to={`/calendar/${row.id}/edit`}>{isAr ? 'تعديل' : 'Edit'}</Link>
                         </Button>
                         <Button
                           type="button"
@@ -331,7 +511,16 @@ export function CalendarAdminPage() {
                         >
                           {row.isFeatured ? (isAr ? 'إلغاء الإعلان' : 'Unfeature') : isAr ? 'إعلان' : 'Announce'}
                         </Button>
-                        <Button type="button" size="sm" variant="destructive" onClick={() => remove.mutate(row.id)}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => {
+                            if (window.confirm(isAr ? 'حذف هذه الورشة؟' : 'Delete this workshop?')) {
+                              remove.mutate(row.id);
+                            }
+                          }}
+                        >
                           {isAr ? 'حذف' : 'Delete'}
                         </Button>
                       </div>
@@ -343,164 +532,14 @@ export function CalendarAdminPage() {
           </table>
         </div>
         {!isLoading && !rows.length ? (
-          <p className="py-8 text-center text-sm text-[var(--color-ink-muted)]">
-            {isAr ? 'لا توجد ورش بعد.' : 'No workshops yet.'}
-          </p>
+          <div className="py-8 text-center">
+            <p className="text-sm text-[var(--color-ink-muted)]">{isAr ? 'لا توجد ورش بعد.' : 'No workshops yet.'}</p>
+            <Button asChild className="mt-4">
+              <Link to="/calendar/new">{isAr ? 'إضافة ورشة الآن' : 'Add workshop now'}</Link>
+            </Button>
+          </div>
         ) : null}
       </section>
-
-      <form
-        className="admin-panel"
-        onSubmit={(e) => {
-          e.preventDefault();
-          save.mutate();
-        }}
-      >
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-black">
-              {editingId ? (isAr ? 'تعديل ورشة' : 'Edit workshop') : isAr ? 'ورشة جديدة' : 'New workshop'}
-            </h2>
-            <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
-              {isAr
-                ? 'اكتب العنوان الإنجليزي ليُنشأ الرابط تلقائياً. انشر الورشة ليظهر الرابط في الموقع.'
-                : 'Enter the English title to auto-generate the URL. Publish so the link appears on the site.'}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <LocalePill locale="ar" complete={Boolean(form.title.trim() && form.presenterAr.trim())} />
-            <LocalePill locale="en" complete={Boolean(form.titleEn.trim() && form.presenterEn.trim())} />
-          </div>
-        </div>
-
-        <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <div className="space-y-1">
-            <Input
-              id="slug"
-              label={isAr ? 'رابط الورشة (تلقائي)' : 'Workshop URL slug (auto)'}
-              value={form.slug}
-              onChange={(e) => {
-                setSlugLocked(true);
-                setForm({ ...form, slug: filterEnglishOnly(e.target.value.toLowerCase()).replace(/\s+/g, '-') });
-              }}
-              placeholder="guided-surgery-workshop"
-            />
-            {form.slug ? (
-              <p className="truncate text-[11px] text-[var(--color-ink-muted)]">{workshopPublicUrl(form.slug)}</p>
-            ) : null}
-          </div>
-          <Input
-            id="startsAt"
-            label={isAr ? 'البداية *' : 'Starts *'}
-            type="datetime-local"
-            value={form.startsAt}
-            onChange={(e) => setForm({ ...form, startsAt: e.target.value })}
-          />
-          <Input
-            id="endsAt"
-            label={isAr ? 'النهاية *' : 'Ends *'}
-            type="datetime-local"
-            value={form.endsAt}
-            onChange={(e) => setForm({ ...form, endsAt: e.target.value })}
-          />
-          <MediaImageField
-            id="coverUrl"
-            label={isAr ? 'صورة الغلاف' : 'Cover image'}
-            value={form.coverUrl}
-            onChange={(coverUrl) => setForm({ ...form, coverUrl })}
-          />
-          <label className="flex items-center gap-2 text-sm font-semibold">
-            <input
-              type="checkbox"
-              checked={form.isPublished}
-              onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
-            />
-            {isAr ? 'منشورة على الموقع (يظهر الرابط)' : 'Published on website (shows URL)'}
-          </label>
-          <label className="flex items-center gap-2 text-sm font-semibold">
-            <input
-              type="checkbox"
-              checked={form.isFeatured}
-              onChange={(e) => setForm({ ...form, isFeatured: e.target.checked, isPublished: e.target.checked || form.isPublished })}
-            />
-            {isAr ? 'إعلان في الرئيسية' : 'Homepage announcement'}
-          </label>
-        </div>
-
-        <div className="bilingual-grid">
-          <section className="bilingual-column">
-            <header>
-              <strong>العربية *</strong>
-              <span>عربي فقط</span>
-            </header>
-            <Input id="title" label="عنوان الورشة *" value={form.title} onChange={(e) => setAr('title', e.target.value)} />
-            <Input
-              id="presenterAr"
-              label="مقدّم الورشة *"
-              value={form.presenterAr}
-              onChange={(e) => setAr('presenterAr', e.target.value)}
-              placeholder="د. عمار العبيدي"
-            />
-            <Textarea
-              id="description"
-              label="تفاصيل الورشة"
-              value={form.description}
-              onChange={(e) => setAr('description', e.target.value)}
-              rows={5}
-            />
-          </section>
-          <section className="bilingual-column is-en">
-            <header>
-              <strong>English *</strong>
-              <span>English only — drives the URL</span>
-            </header>
-            <Input id="titleEn" label="Workshop title *" value={form.titleEn} onChange={(e) => setEn('titleEn', e.target.value)} />
-            <Input
-              id="presenterEn"
-              label="Presenter *"
-              value={form.presenterEn}
-              onChange={(e) => setEn('presenterEn', e.target.value)}
-              placeholder="Dr. Ammar Al-Obaidi"
-            />
-            <Textarea
-              id="descriptionEn"
-              label="Workshop details"
-              value={form.descriptionEn}
-              onChange={(e) => setEn('descriptionEn', e.target.value)}
-              rows={5}
-            />
-          </section>
-        </div>
-
-        <div className="admin-form-footer">
-          <Button type="submit" disabled={save.isPending}>
-            {save.isPending
-              ? isAr
-                ? 'جاري الحفظ...'
-                : 'Saving...'
-              : editingId
-                ? isAr
-                  ? 'حفظ التعديل'
-                  : 'Save changes'
-                : isAr
-                  ? 'إنشاء الورشة'
-                  : 'Create workshop'}
-          </Button>
-          {editingId ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setEditingId(null);
-                setSlugLocked(false);
-                setForm(empty);
-              }}
-            >
-              {isAr ? 'إلغاء' : 'Cancel'}
-            </Button>
-          ) : null}
-        </div>
-      </form>
     </div>
   );
 }
