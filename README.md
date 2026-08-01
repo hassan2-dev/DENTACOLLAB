@@ -6,7 +6,7 @@
 
 - Frontend: React, Vite, TypeScript, TailwindCSS, TanStack Query, React Hook Form, Zod, Framer Motion, React Router
 - Backend: NestJS, Prisma, PostgreSQL, JWT + RBAC, Swagger
-- Storage: Cloudflare R2 / S3-compatible (مع تخزين محلي للتطوير)
+- Storage: Cloudflare R2
 - Deploy: Docker, Nginx, Ubuntu VPS
 
 ## Monorepo
@@ -61,7 +61,7 @@ pnpm dev:admin   # http://localhost:5174
 |----------|-------------|
 | `DATABASE_URL` | PostgreSQL connection |
 | `JWT_ACCESS_SECRET` | Access token secret |
-| `R2_*` | Cloudflare R2 credentials (اختياري) |
+| `R2_*` | Cloudflare R2 credentials (مطلوب) |
 | `OPENAI_API_KEY` | للـ RAG chatbot (اختياري — يوجد fallback محلي) |
 | `VITE_API_URL` | عنوان الـ API للفرونت |
 

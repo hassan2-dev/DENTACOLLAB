@@ -63,7 +63,6 @@ Configured in `docker/nginx/nginx.conf`:
 | `/admin/` | Admin dashboard |
 | `/api/` | NestJS API |
 | `/api/docs` | Swagger |
-| `/uploads/` | Local media (if not using R2 CDN) |
 
 ## 5. TLS (Let's Encrypt)
 

@@ -3,16 +3,12 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
-import { join } from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.setGlobalPrefix('api/v1');
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-  app.useStaticAssets(join(process.cwd(), process.env.LOCAL_UPLOAD_DIR ?? 'uploads'), {
-    prefix: '/uploads/',
-  });
   app.enableCors({
     origin: process.env.CORS_ORIGINS?.split(',') ?? true,
     credentials: true,

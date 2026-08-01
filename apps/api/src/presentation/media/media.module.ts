@@ -49,7 +49,6 @@ function mediaUrlVariants(url: string, key?: string) {
   if (url) variants.add(url);
   if (key) {
     variants.add(key);
-    variants.add(`/uploads/${key.replace(/^\/+/, '')}`);
     variants.add(key.replace(/^\/+/, ''));
   }
   try {
