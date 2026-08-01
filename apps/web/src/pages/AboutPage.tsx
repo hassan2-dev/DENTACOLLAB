@@ -29,7 +29,8 @@ export function AboutPage() {
     ? {
         title: 'من نحن',
         eyebrow: 'الأكاديمية',
-        heroTitle: 'نبني جيلاً يمارس طب الأسنان الرقمي بثقة',
+        heroTitle:
+          'منصة تعليمية وتدريبية متخصصة تهدف إلى بناء وتطوير كفاءات أطباء الأسنان والفنيين، وتزويدهم بأحدث الخبرات والتطبيقات العملية على يد نخبة من الخبراء والاستشاريين.',
         heroBody:
           'DentaCollab أكاديمية متخصصة تربط الخبرة السريرية بأحدث التقنيات الرقمية، عبر برامج عملية واضحة للأطباء والمختبرات.',
         storyEyebrow: 'قصتنا',
@@ -63,7 +64,8 @@ export function AboutPage() {
     : {
         title: 'About us',
         eyebrow: 'The academy',
-        heroTitle: 'Building dentists who practice digital workflows with confidence',
+        heroTitle:
+          'A specialized educational and training platform dedicated to building and developing the competencies of dentists and technicians, and providing them with the latest expertise and practical applications from leading experts and consultants.',
         heroBody:
           'DentaCollab is a specialized academy that connects clinical expertise with modern digital technology through clear, practical programs for doctors and labs.',
         storyEyebrow: 'Our story',
@@ -124,7 +126,7 @@ export function AboutPage() {
             <p className="mt-4 font-[family-name:var(--font-display,inherit)] text-4xl font-black tracking-[-0.04em] text-white sm:text-5xl md:text-6xl">
               Denta<span className="text-[#1fb6d1]">Collab</span>
             </p>
-            <h1 className="mt-5 max-w-xl text-2xl font-bold leading-snug tracking-[-0.02em] text-white/95 sm:text-3xl md:text-4xl">
+            <h1 className="mt-5 max-w-2xl text-lg font-bold leading-8 tracking-[-0.01em] text-white/95 sm:text-xl sm:leading-8 md:text-2xl md:leading-9">
               {copy.heroTitle}
             </h1>
             <p className="mt-5 max-w-lg text-sm leading-8 text-slate-300 sm:text-base sm:leading-8">{copy.heroBody}</p>
