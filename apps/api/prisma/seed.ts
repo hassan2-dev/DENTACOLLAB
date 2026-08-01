@@ -1,5 +1,6 @@
 import { PrismaClient, UserRole, CourseLevel, PublishStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { EXOPLAN_COURSE_SLUGS, seedExoplanCourses } from './seed-exoplan-courses';
 
 const prisma = new PrismaClient();
 
@@ -32,6 +33,7 @@ async function main() {
       ],
       imageUrl: '/dr-ammar.png',
       isPublished: true,
+      sortOrder: 0,
     },
     create: {
       id: 'seed-instructor-1',
@@ -46,6 +48,7 @@ async function main() {
         'Exoplan ITC Trainer',
       ],
       imageUrl: '/dr-ammar.png',
+      sortOrder: 0,
       socialLinks: {
         create: [
           { platform: 'linkedin', url: 'https://linkedin.com' },
@@ -55,8 +58,122 @@ async function main() {
     },
   });
 
+  const assistantTrainers = [
+    {
+      id: 'seed-instructor-noor',
+      sortOrder: 1,
+      imageUrl: '/dr-noor.png',
+      ar: {
+        name: 'د. نور الهلال',
+        title: 'مساعد مدرب',
+        biography:
+          'طبيبة أسنان متخصصة في طب الأسنان الرقمي، مدربة Exoplan معتمدة في تصميم الأدلة الجراحية المتقدمة، وخبيرة في سير عمل الجراحة الموجّهة ومستخدمة RealGUIDE.',
+        experience: 'طب الأسنان الرقمي وتصميم الأدلة الجراحية المتقدمة باستخدام Exoplan',
+        certificates: [
+          'B.D.S',
+          'Digital Dentistry',
+          'Certified in Advanced Surgical Guide Design (Exoplan)',
+          'Exoplan Trainer',
+          'Guided Implant Surgery Workflow',
+          'RealGUIDE User',
+        ],
+      },
+      en: {
+        name: 'Dr. Noor Al-Hilal',
+        title: 'Assistant Trainer',
+        biography:
+          'Dental professional specializing in digital dentistry, Exoplan trainer certified in advanced surgical guide design, with expertise in guided implant surgery workflow and RealGUIDE.',
+        experience: 'Digital dentistry and advanced surgical guide design with Exoplan',
+        certificates: [
+          'B.D.S',
+          'Digital Dentistry',
+          'Certified in Advanced Surgical Guide Design (Exoplan)',
+          'Exoplan Trainer',
+          'Guided Implant Surgery Workflow',
+          'RealGUIDE User',
+        ],
+      },
+    },
+    {
+      id: 'seed-instructor-hawraa',
+      sortOrder: 2,
+      imageUrl: '/dr-hawraa.png',
+      ar: {
+        name: 'د. حوراء الحديثي',
+        title: 'مساعد مدرب',
+        biography:
+          'طبيبة أسنان متخصصة في طب الأسنان الرقمي، مدربة Exoplan معتمدة في تصميم الأدلة الجراحية المتقدمة وفي أساسيات تصميم التعويضات عبر Exocad، مع خبرة في سير عمل الجراحة الموجّهة وRealGUIDE.',
+        experience: 'طب الأسنان الرقمي، Exoplan، وأساسيات تصميم التعويضات عبر Exocad',
+        certificates: [
+          'B.D.S',
+          'Digital Dentistry',
+          'Certified in Advanced Surgical Guide Design (Exoplan)',
+          'Certified in Basic Prostheses Design (Exocad)',
+          'Exoplan Trainer',
+          'Guided Implant Surgery Workflow',
+          'RealGUIDE User',
+        ],
+      },
+      en: {
+        name: 'Dr. Hawraa Al-Hadethy',
+        title: 'Assistant Trainer',
+        biography:
+          'Dental professional specializing in digital dentistry, Exoplan trainer certified in advanced surgical guide design and basic prostheses design with Exocad, with expertise in guided implant surgery workflow and RealGUIDE.',
+        experience: 'Digital dentistry, Exoplan, and basic prostheses design with Exocad',
+        certificates: [
+          'B.D.S',
+          'Digital Dentistry',
+          'Certified in Advanced Surgical Guide Design (Exoplan)',
+          'Certified in Basic Prostheses Design (Exocad)',
+          'Exoplan Trainer',
+          'Guided Implant Surgery Workflow',
+          'RealGUIDE User',
+        ],
+      },
+    },
+  ] as const;
+
+  const assistantInstructorIds: string[] = [];
+  for (const assistant of assistantTrainers) {
+    const row = await prisma.instructor.upsert({
+      where: { id: assistant.id },
+      update: {
+        ...assistant.ar,
+        imageUrl: assistant.imageUrl,
+        isPublished: true,
+        sortOrder: assistant.sortOrder,
+      },
+      create: {
+        id: assistant.id,
+        ...assistant.ar,
+        imageUrl: assistant.imageUrl,
+        isPublished: true,
+        sortOrder: assistant.sortOrder,
+      },
+    });
+    assistantInstructorIds.push(row.id);
+
+    await prisma.instructorTranslation.upsert({
+      where: {
+        instructorId_locale: { instructorId: row.id, locale: 'ar' },
+      },
+      update: assistant.ar,
+      create: { instructorId: row.id, locale: 'ar', ...assistant.ar },
+    });
+
+    await prisma.instructorTranslation.upsert({
+      where: {
+        instructorId_locale: { instructorId: row.id, locale: 'en' },
+      },
+      update: assistant.en,
+      create: { instructorId: row.id, locale: 'en', ...assistant.en },
+    });
+  }
+
+  const publishedInstructorIds = [instructor.id, ...assistantInstructorIds];
+
   await prisma.instructor.updateMany({
-    where: { id: { not: instructor.id } },
+    where: { id: { notIn: publishedInstructorIds } },
     data: { isPublished: false },
   });
 
@@ -87,7 +204,7 @@ async function main() {
       certificate: 'شهادة إتمام احترافية معتمدة من DentaCollab',
       coverUrl: '/dentacollab-hero.png',
       registrationFormUrl: null,
-      status: PublishStatus.PUBLISHED,
+      status: PublishStatus.ARCHIVED,
     },
     create: {
       title: 'ماستر كلاس الجراحة الموجّهة لزراعة الأسنان',
@@ -114,7 +231,7 @@ async function main() {
       duration: 'ماستر كلاس تدريبي مكثف',
       level: CourseLevel.ADVANCED,
       certificate: 'شهادة إتمام احترافية معتمدة من DentaCollab',
-      status: PublishStatus.PUBLISHED,
+      status: PublishStatus.ARCHIVED,
       instructors: { create: [{ instructorId: instructor.id }] },
       gallery: {
         create: [
@@ -356,31 +473,29 @@ async function main() {
     },
   ];
 
-  await prisma.$transaction(async (tx) => {
-    await tx.curriculumModule.deleteMany({ where: { courseId: course.id } });
-    for (const [moduleIndex, module] of guidedSurgeryCurriculum.entries()) {
-      await tx.curriculumModule.create({
-        data: {
-          courseId: course.id,
-          title: module.title,
-          description: module.description,
-          outcomes: module.outcomes,
-          sortOrder: moduleIndex,
-          lessons: {
-            create: module.lessons.map((lesson, lessonIndex) => ({
-              ...lesson,
-              sortOrder: lessonIndex,
-            })),
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.curriculumModule.deleteMany({ where: { courseId: course.id } });
+      for (const [moduleIndex, module] of guidedSurgeryCurriculum.entries()) {
+        await tx.curriculumModule.create({
+          data: {
+            courseId: course.id,
+            title: module.title,
+            description: module.description,
+            outcomes: module.outcomes,
+            sortOrder: moduleIndex,
+            lessons: {
+              create: module.lessons.map((lesson, lessonIndex) => ({
+                ...lesson,
+                sortOrder: lessonIndex,
+              })),
+            },
           },
-        },
-      });
-    }
-  });
-
-  await prisma.course.updateMany({
-    where: { id: { not: course.id } },
-    data: { status: PublishStatus.ARCHIVED },
-  });
+        });
+      }
+    },
+    { timeout: 120_000 },
+  );
 
   await prisma.instructorTranslation.upsert({
     where: {
@@ -520,6 +635,13 @@ async function main() {
       duration: 'Intensive masterclass',
       certificate: 'DentaCollab accredited professional completion certificate',
     },
+  });
+
+  await seedExoplanCourses(prisma, publishedInstructorIds);
+
+  await prisma.course.updateMany({
+    where: { slug: { notIn: EXOPLAN_COURSE_SLUGS } },
+    data: { status: PublishStatus.ARCHIVED },
   });
 
   await prisma.faq.createMany({
@@ -1023,7 +1145,7 @@ async function main() {
   });
 
   console.log('Seed complete. Admin: admin@dentacollab.com / Admin123!');
-  console.log('Sample course slug:', course.slug);
+  console.log('Published Exoplan courses:', EXOPLAN_COURSE_SLUGS.join(', '));
 
   // Replace leftover Unsplash placeholders with local brand assets.
   // Real production images should be uploaded via Admin → Media (R2 when configured).

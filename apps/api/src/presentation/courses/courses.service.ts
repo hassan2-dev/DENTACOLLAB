@@ -17,6 +17,7 @@ const courseInclude = {
     include: { lessons: { orderBy: { sortOrder: 'asc' as const } } },
   },
   instructors: {
+    orderBy: { instructor: { sortOrder: 'asc' as const } },
     include: {
       instructor: { include: { socialLinks: true, translations: true } },
     },

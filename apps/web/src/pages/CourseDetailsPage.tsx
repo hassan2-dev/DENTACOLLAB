@@ -118,8 +118,8 @@ export function CourseDetailsPage() {
         moduleOutcomes: 'مخرجات الوحدة',
         practicalFormat: 'نمط التدريب',
         requirements: 'المتطلبات الأساسية',
-        learnWith: 'محاضر الدورة',
-        supervised: 'تعرّف على الخبير الذي يقود هذا البرنامج',
+        learnWith: 'فريق التدريب',
+        supervised: 'تعرّف على المدربين الذين يقودون هذا البرنامج',
         founder: 'المدرب',
         credentials: 'المؤهلات والخبرات',
         viewInstructor: 'عرض ملف المدرب ودوراته',
@@ -182,8 +182,8 @@ export function CourseDetailsPage() {
         moduleOutcomes: 'Module outcomes',
         practicalFormat: 'Training format',
         requirements: 'Prerequisites',
-        learnWith: 'Course lecturer',
-        supervised: 'Meet the expert leading this program',
+        learnWith: 'Training team',
+        supervised: 'Meet the trainers leading this program',
         founder: 'Instructor',
         credentials: 'Credentials & expertise',
         viewInstructor: 'View instructor profile & courses',
@@ -423,10 +423,10 @@ export function CourseDetailsPage() {
               <h2 className="mt-3 text-3xl font-black text-[#101c38] md:text-4xl dark:text-white">{copy.supervised}</h2>
               <span className="mx-auto mt-4 block h-1 w-10 rounded-full bg-[#1fb6d1]" />
             </div>
-            {course.instructors.slice(0, 1).map(({ instructor }) => (
+            {course.instructors.map(({ instructor }) => (
               <div
                 key={instructor.id}
-                className="relative mx-auto grid max-w-5xl overflow-hidden rounded-[1.8rem] border border-white bg-white shadow-[0_24px_70px_rgba(16,28,56,.12)] md:grid-cols-[.85fr_1.15fr] dark:border-[#19314f] dark:bg-[#081426]"
+                className="relative mx-auto mb-8 grid max-w-5xl overflow-hidden rounded-[1.8rem] border border-white bg-white shadow-[0_24px_70px_rgba(16,28,56,.12)] last:mb-0 md:grid-cols-[.85fr_1.15fr] dark:border-[#19314f] dark:bg-[#081426]"
               >
                 <div className="relative min-h-[280px] overflow-hidden bg-[linear-gradient(145deg,#dcecf6,#9fcde0)] md:min-h-[380px]">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,.75),transparent_34%),linear-gradient(135deg,transparent_45%,rgba(16,28,56,.14))]" />
@@ -437,7 +437,7 @@ export function CourseDetailsPage() {
                   />
                   <span className="absolute start-5 top-5 inline-flex items-center gap-2 rounded-xl bg-[#101c38] px-3 py-2 text-[10px] font-black text-white shadow-lg">
                     <span className="grid h-5 w-5 place-items-center rounded-full border border-white/35 text-[#42d7ff]">★</span>
-                    {copy.founder}
+                    {instructor.title || copy.founder}
                   </span>
                 </div>
 
