@@ -363,6 +363,15 @@ export function MessagesPage() {
     return status;
   };
 
+  function whatsappHref(phone: string, name: string, subject: string) {
+    let digits = phone.replace(/[^\d]/g, '');
+    if (digits.startsWith('0')) digits = `964${digits.slice(1)}`;
+    const text = isAr
+      ? `مرحباً ${name}، بخصوص رسالتك: ${subject}`
+      : `Hi ${name}, regarding your message: ${subject}`;
+    return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+  }
+
   return (
     <div className="admin-page space-y-6">
       <PageHeader
@@ -370,8 +379,8 @@ export function MessagesPage() {
         title={isAr ? 'رسائل التواصل' : 'Contact messages'}
         description={
           isAr
-            ? 'طلبات فورم التواصل من الموقع — للاطلاع والمتابعة، بدون رد داخل المنصة.'
-            : 'Contact form submissions from the website — review and follow up outside the platform.'
+            ? 'طلبات فورم التواصل من الموقع — رد عبر واتساب أو البريد.'
+            : 'Contact form submissions — reply via WhatsApp or email.'
         }
       />
 
@@ -388,7 +397,7 @@ export function MessagesPage() {
                 key={m.id}
                 className={`rounded-xl border p-4 ${
                   isNew
-                    ? 'border-[#1fb6d1]/35 bg-[#f3fbfd]'
+                    ? 'border-[var(--color-brand)] bg-[var(--color-brand-soft)]'
                     : 'border-[var(--color-border)] bg-[var(--color-surface)]'
                 }`}
               >
@@ -414,8 +423,29 @@ export function MessagesPage() {
                 <p className="whitespace-pre-wrap text-sm leading-7 text-[var(--color-ink)]">{m.message}</p>
 
                 <div className="admin-row-actions mt-4">
+                  {m.phone ? (
+                    <Button type="button" size="sm" asChild>
+                      <a
+                        href={whatsappHref(m.phone, m.fullName, m.subject)}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          if (isNew) mark.mutate({ id: m.id, status: 'READ' });
+                        }}
+                      >
+                        {isAr ? 'رد واتساب' : 'Reply WhatsApp'}
+                      </a>
+                    </Button>
+                  ) : null}
+                  {m.email ? (
+                    <Button type="button" size="sm" variant="secondary" asChild>
+                      <a href={`mailto:${m.email}?subject=${encodeURIComponent(`Re: ${m.subject}`)}`}>
+                        {isAr ? 'رد بالإيميل' : 'Reply email'}
+                      </a>
+                    </Button>
+                  ) : null}
                   {isNew ? (
-                    <Button type="button" size="sm" variant="secondary" onClick={() => mark.mutate({ id: m.id, status: 'READ' })}>
+                    <Button type="button" size="sm" variant="outline" onClick={() => mark.mutate({ id: m.id, status: 'READ' })}>
                       {isAr ? 'تعيين كمقروء' : 'Mark as read'}
                     </Button>
                   ) : (
@@ -423,18 +453,6 @@ export function MessagesPage() {
                       {isAr ? 'تعيين كجديد' : 'Mark as new'}
                     </Button>
                   )}
-                  {m.email ? (
-                    <Button type="button" size="sm" variant="accent" asChild>
-                      <a href={`mailto:${m.email}?subject=${encodeURIComponent(`Re: ${m.subject}`)}`}>
-                        {isAr ? 'فتح البريد' : 'Open email'}
-                      </a>
-                    </Button>
-                  ) : null}
-                  {m.phone ? (
-                    <Button type="button" size="sm" variant="outline" asChild>
-                      <a href={`tel:${m.phone}`}>{isAr ? 'اتصال' : 'Call'}</a>
-                    </Button>
-                  ) : null}
                 </div>
               </article>
             );
