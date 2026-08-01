@@ -36,13 +36,25 @@ export function ContactPage() {
     onSuccess: () => form.reset(),
   });
 
-  const email = general.email || 'hello@dentacollab.com';
-  const phone = general.phone || '+964';
-  const location = general.location || (isAr ? 'بغداد، العراق' : 'Baghdad, Iraq');
-  const wa = general.whatsapp?.replace(/[^\d+]/g, '') || '';
+  const phone = general.phone || '+9647817828545';
+  const location = general.location || (isAr ? 'موقع الأكاديمية' : 'Academy location');
+  const locationEn = general.locationEn || 'Academy location';
+  const locationLabel = isAr ? location : locationEn;
+  const coordinates = general.coordinates || "33°17'16.0\"N 44°20'52.4\"E";
+  const waDigits = (general.whatsapp || phone).replace(/[^\d]/g, '');
+  const waDisplay = general.whatsapp || '+964 781 782 8545';
+  const mapsLink = general.mapsUrl || 'https://maps.app.goo.gl/qJ7KMyB6dQEuxGQE7?g_st=ic';
   const mapSrc = general.mapsUrl?.includes('embed')
     ? general.mapsUrl
-    : `https://maps.google.com/maps?q=${encodeURIComponent(location)}&output=embed`;
+    : `https://maps.google.com/maps?q=${encodeURIComponent("33.287778,44.347889")}&z=17&output=embed`;
+
+  const socialLabels: Record<string, { ar: string; en: string }> = {
+    instagram: { ar: 'انستغرام', en: 'Instagram' },
+    facebook: { ar: 'فيسبوك', en: 'Facebook' },
+    twitter: { ar: 'تويتر', en: 'X / Twitter' },
+    linkedin: { ar: 'لينكدإن', en: 'LinkedIn' },
+    youtube: { ar: 'يوتيوب', en: 'YouTube' },
+  };
 
   const copy = isAr
     ? {
@@ -61,11 +73,11 @@ export function ContactPage() {
         sending: 'جاري الإرسال...',
         success: 'وصلت رسالتك. سنتواصل معك قريباً.',
         successBody: 'يمكنك أيضاً متابعة الدورات أو التحدث مع المساعد الذكي الآن.',
-        emailLabel: 'البريد',
-        phoneLabel: 'الهاتف',
-        locationLabel: 'الموقع',
-        whatsapp: 'واتساب مباشر',
+        instagramLabel: 'انستغرام',
+        facebookLabel: 'فيسبوك',
+        whatsapp: 'واتساب',
         whatsappBody: 'تواصل فوري مع فريق التسجيل',
+        locationLabel: 'موقع الأكاديمية',
         mapTitle: 'زورنا',
         mapBody: 'موقع الأكاديمية على الخريطة',
         quickCourses: 'استكشف الدورات',
@@ -74,6 +86,7 @@ export function ContactPage() {
         responseValue: 'خلال ساعات',
         support: 'دعم التسجيل',
         supportValue: 'متوفر يومياً',
+        socialTitle: 'سوشيال ميديا',
       }
     : {
         badge: 'Direct contact',
@@ -91,11 +104,11 @@ export function ContactPage() {
         sending: 'Sending...',
         success: 'Message received. We will contact you soon.',
         successBody: 'You can also browse courses or talk to the AI assistant now.',
-        emailLabel: 'Email',
-        phoneLabel: 'Phone',
-        locationLabel: 'Location',
-        whatsapp: 'WhatsApp direct',
+        instagramLabel: 'Instagram',
+        facebookLabel: 'Facebook',
+        whatsapp: 'WhatsApp',
         whatsappBody: 'Instant chat with the registration team',
+        locationLabel: 'Academy location',
         mapTitle: 'Visit us',
         mapBody: 'Academy location on the map',
         quickCourses: 'Explore courses',
@@ -104,25 +117,32 @@ export function ContactPage() {
         responseValue: 'Within hours',
         support: 'Registration support',
         supportValue: 'Available daily',
+        socialTitle: 'Social media',
       };
 
   const channels = [
     {
-      label: copy.emailLabel,
-      value: email,
-      href: `mailto:${email}`,
-      icon: '@',
+      label: copy.instagramLabel,
+      value: '@dentacollab',
+      href: social.instagram || 'https://www.instagram.com/dentacollab',
+      icon: '◎',
     },
     {
-      label: copy.phoneLabel,
-      value: phone,
-      href: `tel:${phone}`,
-      icon: '☎',
+      label: copy.whatsapp,
+      value: waDisplay,
+      href: waDigits ? `https://wa.me/${waDigits}` : undefined,
+      icon: '✆',
+    },
+    {
+      label: copy.facebookLabel,
+      value: 'Digital dentistry training courses',
+      href: social.facebook || 'https://www.facebook.com/Digitaldentistrytrainingcourses',
+      icon: 'f',
     },
     {
       label: copy.locationLabel,
-      value: location,
-      href: general.mapsUrl || undefined,
+      value: coordinates,
+      href: mapsLink,
       icon: '⌖',
     },
   ];
@@ -193,16 +213,16 @@ export function ContactPage() {
                 <p className="mt-2 text-lg font-black text-[#7be7ff]">{value}</p>
               </div>
             ))}
-            {wa ? (
+            {waDigits ? (
               <a
-                href={`https://wa.me/${wa.replace('+', '')}`}
+                href={`https://wa.me/${waDigits}`}
                 target="_blank"
                 rel="noreferrer"
                 className="col-span-2 flex items-center justify-between gap-4 rounded-2xl border border-[#1fb6d1]/35 bg-[#1fb6d1]/10 px-5 py-4 transition hover:bg-[#1fb6d1]/20"
               >
                 <div>
                   <p className="text-sm font-black text-white">{copy.whatsapp}</p>
-                  <p className="mt-1 text-xs text-slate-300">{copy.whatsappBody}</p>
+                  <p className="mt-1 text-xs text-slate-300">{waDisplay}</p>
                 </div>
                 <span className="grid h-10 w-10 place-items-center rounded-full bg-[#25D366] text-lg font-black text-white">
                   W
@@ -224,7 +244,7 @@ export function ContactPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {channels.map((item) => {
               const content = (
                 <>
@@ -335,17 +355,29 @@ export function ContactPage() {
             <div className="border-b border-white/10 px-6 py-5">
               <p className="text-xs font-bold uppercase tracking-[.18em] text-[#7be7ff]">{copy.mapTitle}</p>
               <h3 className="mt-2 text-xl font-black text-white">{copy.mapBody}</h3>
-              <p className="mt-2 text-sm text-slate-300">{location}</p>
+              <p className="mt-2 text-sm text-slate-300">{locationLabel}</p>
+              <p className="mt-1 text-xs text-slate-400" dir="ltr">
+                {coordinates}
+              </p>
+              <a
+                href={mapsLink}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex text-xs font-bold text-[#7be7ff] hover:underline"
+              >
+                {isAr ? 'فتح في خرائط Google' : 'Open in Google Maps'}
+              </a>
             </div>
             <iframe
               title={isAr ? 'الخريطة' : 'Map'}
               src={mapSrc}
-              className="h-[280px] w-full border-0 sm:h-[360px] lg:h-[calc(100%-118px)] lg:min-h-[420px]"
+              className="h-[280px] w-full border-0 sm:h-[360px] lg:h-[calc(100%-150px)] lg:min-h-[420px]"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
             />
             {Object.keys(social).length ? (
               <div className="flex flex-wrap gap-2 border-t border-white/10 px-6 py-4">
+                <p className="w-full text-[10px] font-bold uppercase tracking-wider text-slate-500">{copy.socialTitle}</p>
                 {Object.entries(social).map(([key, value]) => (
                   <a
                     key={key}
@@ -354,7 +386,7 @@ export function ContactPage() {
                     rel="noreferrer"
                     className="rounded-full border border-white/15 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-300 transition hover:border-[#1fb6d1] hover:text-white"
                   >
-                    {key}
+                    {socialLabels[key]?.[isAr ? 'ar' : 'en'] || key}
                   </a>
                 ))}
               </div>

@@ -10,7 +10,7 @@ import { ScrollToTop } from './ScrollToTop';
 const links = [
   { to: '/', key: 'home' },
   { to: '/courses', key: 'courses' },
-  { to: '/workshops', key: 'workshops' },
+  { to: '/graduates', key: 'graduates' },
   { to: '/instructors', key: 'instructors' },
   { to: '/gallery', key: 'gallery' },
   { to: '/about', key: 'about' },
@@ -199,7 +199,7 @@ export function SiteLayout() {
                     rel="noreferrer"
                     className="grid h-10 min-w-10 place-items-center rounded-full border border-white/12 px-3 text-[11px] font-bold uppercase tracking-wide text-slate-300 transition hover:border-[#1fb6d1] hover:text-white"
                   >
-                    {key}
+                    {key === 'instagram' ? (locale === 'ar' ? 'انستا' : 'IG') : key === 'facebook' ? (locale === 'ar' ? 'فيس' : 'FB') : key}
                   </a>
                 ))}
               </div>
@@ -211,7 +211,7 @@ export function SiteLayout() {
             <div className="grid gap-3 text-sm text-slate-300">
               {[
                 { to: '/courses', label: t('courses') },
-                { to: '/workshops', label: t('workshops') },
+                { to: '/graduates', label: t('graduates') },
                 { to: '/instructors', label: t('instructors') },
                 { to: '/gallery', label: t('gallery') },
                 { to: '/about', label: t('about') },
@@ -230,25 +230,59 @@ export function SiteLayout() {
             <div className="grid gap-4 text-sm leading-7 text-slate-300">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  {locale === 'ar' ? 'البريد' : 'Email'}
+                  {locale === 'ar' ? 'واتساب' : 'WhatsApp'}
                 </p>
-                <a href={`mailto:${general.email || 'hello@dentacollab.com'}`} className="transition hover:text-white">
-                  {general.email || 'hello@dentacollab.com'}
+                <a
+                  href={`https://wa.me/${(general.whatsapp || '+9647817828545').replace(/[^\d]/g, '')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="transition hover:text-white"
+                  dir="ltr"
+                >
+                  {general.whatsapp || '+964 781 782 8545'}
                 </a>
               </div>
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  {locale === 'ar' ? 'الهاتف' : 'Phone'}
+                  {locale === 'ar' ? 'انستغرام' : 'Instagram'}
                 </p>
-                <a href={`tel:${general.phone || '+964'}`} className="transition hover:text-white">
-                  {general.phone || '+964'}
+                <a
+                  href={social.instagram || 'https://www.instagram.com/dentacollab'}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="transition hover:text-white"
+                >
+                  @dentacollab
                 </a>
               </div>
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  {locale === 'ar' ? 'الموقع' : 'Location'}
+                  {locale === 'ar' ? 'فيسبوك' : 'Facebook'}
                 </p>
-                <p>{general.location || (locale === 'ar' ? 'بغداد، العراق' : 'Baghdad, Iraq')}</p>
+                <a
+                  href={social.facebook || 'https://www.facebook.com/Digitaldentistrytrainingcourses'}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="transition hover:text-white"
+                >
+                  Digital dentistry training courses
+                </a>
+              </div>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  {locale === 'ar' ? 'موقع الأكاديمية' : 'Academy location'}
+                </p>
+                <a
+                  href={general.mapsUrl || 'https://maps.app.goo.gl/qJ7KMyB6dQEuxGQE7?g_st=ic'}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="transition hover:text-white"
+                >
+                  {general.location || (locale === 'ar' ? 'موقع الأكاديمية' : 'Academy location')}
+                </a>
+                <p className="mt-1 text-xs text-slate-500" dir="ltr">
+                  {general.coordinates || "33°17'16.0\"N 44°20'52.4\"E"}
+                </p>
               </div>
             </div>
           </div>

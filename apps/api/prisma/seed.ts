@@ -990,53 +990,85 @@ async function main() {
     });
   }
 
-  await prisma.setting.createMany({
-    data: [
-      {
-        key: 'general',
-        value: {
-          siteName: 'DentaCollab',
-          tagline: 'أكاديمية طب الأسنان الرقمي',
-          email: 'hello@dentacollab.com',
-          phone: '+966500000000',
-          whatsapp: '+966500000000',
-          location: 'الرياض، المملكة العربية السعودية',
-          mapsUrl: 'https://maps.google.com',
-          logoUrl: '',
-        },
+  await prisma.setting.upsert({
+    where: { key: 'general' },
+    update: {
+      value: {
+        siteName: 'DentaCollab',
+        tagline: 'أكاديمية طب الأسنان الرقمي',
+        email: '',
+        phone: '+9647817828545',
+        whatsapp: '+9647817828545',
+        location: 'موقع الأكاديمية',
+        locationEn: 'Academy location',
+        coordinates: "33°17'16.0\"N 44°20'52.4\"E",
+        mapsUrl: 'https://maps.app.goo.gl/qJ7KMyB6dQEuxGQE7?g_st=ic',
+        logoUrl: '',
       },
-      {
-        key: 'seo',
-        value: {
-          title: 'DentaCollab | أكاديمية طب الأسنان الرقمي',
-          description: 'دورات وبرامج احترافية في Digital Dentistry',
-          keywords: ['طب أسنان رقمي', 'CAD/CAM', 'DentaCollab'],
-        },
+    },
+    create: {
+      key: 'general',
+      value: {
+        siteName: 'DentaCollab',
+        tagline: 'أكاديمية طب الأسنان الرقمي',
+        email: '',
+        phone: '+9647817828545',
+        whatsapp: '+9647817828545',
+        location: 'موقع الأكاديمية',
+        locationEn: 'Academy location',
+        coordinates: "33°17'16.0\"N 44°20'52.4\"E",
+        mapsUrl: 'https://maps.app.goo.gl/qJ7KMyB6dQEuxGQE7?g_st=ic',
+        logoUrl: '',
       },
-      {
-        key: 'social',
-        value: {
-          instagram: 'https://instagram.com',
-          twitter: 'https://x.com',
-          linkedin: 'https://linkedin.com',
-          youtube: 'https://youtube.com',
-        },
+    },
+  });
+
+  await prisma.setting.upsert({
+    where: { key: 'seo' },
+    update: {},
+    create: {
+      key: 'seo',
+      value: {
+        title: 'DentaCollab | أكاديمية طب الأسنان الرقمي',
+        description: 'دورات وبرامج احترافية في Digital Dentistry',
+        keywords: ['طب أسنان رقمي', 'CAD/CAM', 'DentaCollab'],
       },
-      {
-        key: 'chatbot',
-        value: {
-          welcomeAr: 'مرحباً بك في DentaCollab. كيف أقدر أساعدك بخصوص الدورات أو التسجيل؟',
-          welcomeEn: 'Welcome to DentaCollab. How can I help with courses or registration?',
-          goodbyeAr: 'شكراً لتواصلك معنا. نتمنى لك يوماً سعيداً!',
-          goodbyeEn: 'Thanks for chatting with us. Have a great day!',
-          outOfScopeAr:
-            'عذراً، هذا السؤال خارج نطاق الأسئلة المتوفرة. يمكنك التواصل مع الدعم عبر واتساب.',
-          outOfScopeEn:
-            'Sorry, that question is outside our FAQ. You can reach support on WhatsApp.',
-        },
+    },
+  });
+
+  await prisma.setting.upsert({
+    where: { key: 'social' },
+    update: {
+      value: {
+        instagram: 'https://www.instagram.com/dentacollab',
+        facebook: 'https://www.facebook.com/Digitaldentistrytrainingcourses',
       },
-    ],
-    skipDuplicates: true,
+    },
+    create: {
+      key: 'social',
+      value: {
+        instagram: 'https://www.instagram.com/dentacollab',
+        facebook: 'https://www.facebook.com/Digitaldentistrytrainingcourses',
+      },
+    },
+  });
+
+  await prisma.setting.upsert({
+    where: { key: 'chatbot' },
+    update: {},
+    create: {
+      key: 'chatbot',
+      value: {
+        welcomeAr: 'مرحباً بك في DentaCollab. كيف أقدر أساعدك بخصوص الدورات أو التسجيل؟',
+        welcomeEn: 'Welcome to DentaCollab. How can I help with courses or registration?',
+        goodbyeAr: 'شكراً لتواصلك معنا. نتمنى لك يوماً سعيداً!',
+        goodbyeEn: 'Thanks for chatting with us. Have a great day!',
+        outOfScopeAr:
+          'عذراً، هذا السؤال خارج نطاق الأسئلة المتوفرة. يمكنك التواصل مع الدعم عبر واتساب.',
+        outOfScopeEn:
+          'Sorry, that question is outside our FAQ. You can reach support on WhatsApp.',
+      },
+    },
   });
 
   const chatbotQaCount = await prisma.chatBotQa.count();

@@ -50,6 +50,15 @@ type Workshop = {
   startsAt: string;
   endsAt: string;
 };
+type Graduate = {
+  id: string;
+  fullName: string;
+  imageUrl?: string;
+  courseTitle?: string;
+  rating?: number;
+  description?: string;
+  graduationDate: string;
+};
 
 const levelLabel: Record<string, Record<string, string>> = {
   ar: { STUDENTS: 'طلاب', BASIC: 'أساسي', ADVANCED: 'متقدم' },
@@ -72,8 +81,13 @@ export function HomePage() {
     queryKey: ['workshop-featured', locale],
     queryFn: () => api<Workshop | null>(`/calendar/featured?locale=${locale}`),
   });
+  const graduates = useQuery({
+    queryKey: ['graduates-home', locale],
+    queryFn: () => api<Graduate[]>('/graduates'),
+  });
   const featured = courses.data?.[0];
   const publishedCourses = courses.data ?? [];
+  const publishedGraduates = graduates.data ?? [];
   const instructor = featured?.instructors?.[0]?.instructor;
   const [courseSlug, setCourseSlug] = useState('');
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -99,15 +113,6 @@ export function HomePage() {
     onSuccess: () => setAnswers({}),
   });
 
-  const gallery =
-    featured?.gallery?.length
-      ? featured.gallery.slice(0, 3)
-      : [
-          { url: '/dentacollab-hero.png', alt: 'Clinical result' },
-          { url: '/dentacollab-hero.png', alt: 'Digital design' },
-          { url: '/dentacollab-hero.png', alt: 'Digital lab' },
-        ];
-
   const copy = isAr
     ? {
         badge: 'أكاديمية طب الأسنان الرقمي',
@@ -127,10 +132,10 @@ export function HomePage() {
         aboutBody:
           'نربط المعرفة النظرية بالتطبيق السريري الحقيقي عبر منهج واضح، مدربين خبراء، ومختبرات رقمية حديثة.',
         benefitItems: ['مناهج عملية', 'مدربون خبراء', 'شهادات معتمدة', 'مجتمع مهني'],
-        heroTitle: 'أتقن طب الأسنان الرقمي',
+        heroTitle: 'المنصة الأولى في العراق لتطوير مهاراتك في طب الأسنان الرقمي',
         heroBody: 'أكاديمية متخصصة في طب الأسنان الرقمي لتمكين الأطباء والمختبرات عبر تدريب عملي ومنهج احترافي.',
         instructorLabel: 'المدرب الرئيسي',
-        stories: 'نجاحات المتدربين',
+        stories: 'الخريجون',
         viewAll: 'عرض الكل',
         reserveTitle: 'احجز مقعدك الآن',
         reserveBody: 'املأ بياناتك واختر الدورة المناسبة، وسيتواصل معك فريق الأكاديمية خلال ساعات.',
@@ -138,8 +143,9 @@ export function HomePage() {
         send: 'إرسال الطلب',
         faqTitle: 'الأسئلة الشائعة',
         success: 'تم إرسال طلبك بنجاح. سنتواصل معك قريباً.',
-        heroStats: [['500+', 'متدرب وطبيب'], ['15+', 'ورشة متخصصة'], ['98%', 'رضا المتدربين']],
+        heroStats: [['500+', 'متدرب وطبيب'], ['50+', 'خريج'], ['98%', 'رضا المتدربين']],
         noCourses: 'لا توجد دورات متاحة حالياً',
+        noGraduates: 'لا يوجد خريجون معروضون حالياً',
       }
     : {
         badge: 'Digital Dentistry Training Center',
@@ -159,11 +165,11 @@ export function HomePage() {
         aboutBody:
           'We connect clinical theory with real digital workflows through clear curricula, expert instructors, and modern labs.',
         benefitItems: ['Hands-on curricula', 'Expert instructors', 'Accredited certificates', 'Professional community'],
-        heroTitle: 'Master Digital Dentistry',
+        heroTitle: "Iraq's leading platform for building your digital dentistry skills",
         heroBody:
           'A specialized academy empowering clinicians and labs through hands-on digital dentistry training.',
         instructorLabel: 'Lead Instructor',
-        stories: 'Student Success',
+        stories: 'Graduates',
         viewAll: 'View all',
         reserveTitle: 'Secure Your Spot',
         reserveBody: 'Fill in your details, pick a course, and our team will contact you shortly.',
@@ -171,8 +177,9 @@ export function HomePage() {
         send: 'Submit Request',
         faqTitle: 'Frequently Asked Questions',
         success: 'Your request was submitted successfully. We will contact you soon.',
-        heroStats: [['500+', 'Doctors trained'], ['15+', 'Specialist workshops'], ['98%', 'Learner satisfaction']],
+        heroStats: [['500+', 'Doctors trained'], ['50+', 'Graduates'], ['98%', 'Learner satisfaction']],
         noCourses: 'No courses available right now',
+        noGraduates: 'No graduates to show yet',
       };
 
   return (
@@ -210,7 +217,7 @@ export function HomePage() {
             <span className="inline-flex rounded-full border border-[#cceef4] bg-[#eefbfe] px-4 py-2 text-xs font-bold text-[#1789a2] dark:border-[#1f3658] dark:bg-[#0b2850] dark:text-[#42d7ff]">
               {copy.badge}
             </span>
-            <h1 className="mt-4 text-3xl font-black leading-[1.12] tracking-[-0.04em] text-[#101c38] sm:text-4xl md:mt-6 md:text-6xl dark:text-white">
+            <h1 className="mt-4 text-2xl font-black leading-[1.2] tracking-[-0.03em] text-[#101c38] sm:text-3xl md:mt-6 md:text-5xl dark:text-white">
               {copy.heroTitle}
             </h1>
             <p className="mt-3 text-xl font-semibold text-[#1fb6d1] md:text-3xl">
@@ -295,7 +302,65 @@ export function HomePage() {
         </div>
       </section>
 
-      {featuredWorkshop.data ? (
+      {publishedGraduates.length ? (
+        <section className="relative z-20 -mt-5 mb-2 px-4 sm:-mt-8 sm:mb-4 sm:px-6">
+          <div className="dc-container">
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, delay: 0.15 }}
+            >
+              <div className="overflow-hidden rounded-[1.35rem] border border-white/15 bg-[#101c38] shadow-[0_18px_50px_rgba(16,28,56,.28)]">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4 sm:px-6">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[.16em] text-[#1fb6d1]">
+                      {isAr ? 'خريجو الأكاديمية' : 'Academy graduates'}
+                    </p>
+                    <h2 className="mt-1 text-lg font-black text-white sm:text-xl">
+                      {isAr ? 'قصص نجاح حقيقية من برامجنا' : 'Real success stories from our programs'}
+                    </h2>
+                  </div>
+                  <Link
+                    to="/graduates"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-[#1fb6d1] hover:text-[#101c38]"
+                  >
+                    {copy.viewAll}
+                    <span aria-hidden>→</span>
+                  </Link>
+                </div>
+                <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 py-5 sm:px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {publishedGraduates.slice(0, 8).map((g) => (
+                    <article
+                      key={g.id}
+                      className="w-[min(78vw,16.5rem)] shrink-0 snap-start rounded-2xl border border-white/10 bg-white/5 p-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        {g.imageUrl ? (
+                          <img src={g.imageUrl} alt="" className="h-12 w-12 rounded-full object-cover" />
+                        ) : (
+                          <span className="grid h-12 w-12 place-items-center rounded-full bg-[#1fb6d1]/20 text-sm font-black text-[#7be7ff]">
+                            {g.fullName.charAt(0)}
+                          </span>
+                        )}
+                        <div className="min-w-0">
+                          <h3 className="truncate text-sm font-bold text-white">{g.fullName}</h3>
+                          <p className="truncate text-[11px] text-[#7be7ff]">{g.courseTitle}</p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-[11px] font-bold tracking-wide text-[#1fb6d1]">
+                        {'★'.repeat(Math.min(5, Math.max(1, g.rating ?? 5)))}
+                      </p>
+                      {g.description ? (
+                        <p className="mt-2 line-clamp-3 text-xs leading-5 text-white/65">{g.description}</p>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+      ) : featuredWorkshop.data ? (
         <section className="relative z-20 -mt-5 mb-2 px-4 sm:-mt-8 sm:mb-4 sm:px-6">
           <div className="dc-container">
             <motion.div
@@ -675,32 +740,45 @@ export function HomePage() {
             <div>
               <p className="text-xs font-bold uppercase tracking-[.2em] text-[#1fb6d1]">{copy.stories}</p>
               <h2 className="mt-3 text-3xl font-black text-[#101c38] dark:text-white">
-                {isAr ? 'نتائج حقيقية من داخل الأكاديمية' : 'Real outcomes from the academy'}
+                {isAr ? 'خريجون أكملوا المسار وحققوا نتائج' : 'Graduates who completed the path'}
               </h2>
             </div>
-            <Link to="/gallery" className="hidden text-sm font-bold text-[#1fb6d1] sm:block">
+            <Link to="/graduates" className="hidden text-sm font-bold text-[#1fb6d1] sm:block">
               {copy.viewAll} →
             </Link>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            {gallery.map((item, index) => (
-              <figure
-                key={`${item.url}-${index}`}
-                className="group overflow-hidden rounded-[1.5rem] border border-white bg-white shadow-sm dark:border-[#19314f] dark:bg-[#081426]"
-              >
-                <img
-                  src={item.url}
-                  alt={item.alt || ''}
-                  className="aspect-[4/3] w-full object-cover transition duration-500 group-hover:scale-105"
-                />
-                <figcaption className="p-4">
-                  <p className="font-bold text-[#101c38] dark:text-white">
-                    {isAr ? `مشروع طالب ${index + 1}` : `Student Project ${index + 1}`}
-                  </p>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
+          {publishedGraduates.length ? (
+            <div className="grid gap-4 md:grid-cols-3">
+              {publishedGraduates.slice(0, 6).map((g) => (
+                <article
+                  key={g.id}
+                  className="overflow-hidden rounded-[1.5rem] border border-white bg-white shadow-sm dark:border-[#19314f] dark:bg-[#081426]"
+                >
+                  {g.imageUrl ? (
+                    <img src={g.imageUrl} alt={g.fullName} className="aspect-[4/3] w-full object-cover" />
+                  ) : (
+                    <div className="grid aspect-[4/3] place-items-center bg-[#e8f0f8] text-4xl font-black text-[#101c38]/35 dark:bg-[#0b1c33]">
+                      {g.fullName.charAt(0)}
+                    </div>
+                  )}
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-bold text-[#101c38] dark:text-white">{g.fullName}</h3>
+                      <span className="shrink-0 text-xs font-bold text-[#1fb6d1]">
+                        {'★'.repeat(Math.min(5, Math.max(1, g.rating ?? 5)))}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-[#1fb6d1]">{g.courseTitle}</p>
+                    {g.description ? (
+                      <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500 dark:text-slate-400">{g.description}</p>
+                    ) : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-sm text-slate-500">{copy.noGraduates}</p>
+          )}
         </div>
       </section>
 

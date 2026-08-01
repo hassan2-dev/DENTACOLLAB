@@ -211,6 +211,7 @@ export function GraduatesPage() {
           imageUrl?: string;
           certificateUrl?: string;
           courseTitle?: string;
+          rating?: number;
           graduationDate: string;
           description?: string;
         }>
@@ -224,7 +225,11 @@ export function GraduatesPage() {
       <PageShell
         eyebrow={isAr ? 'قصص نجاح' : 'Success stories'}
         title={isAr ? 'الخريجون' : 'Graduates'}
-        subtitle={isAr ? 'متدربون أكملوا برامج الأكاديمية وانتقلوا لمستوى مهني أعلى.' : 'Learners who completed academy programs and leveled up professionally.'}
+        subtitle={
+          isAr
+            ? 'أشخاص أكملوا برامج الأكاديمية: الدورة، التقييم، وما أنجزوه.'
+            : 'People who completed academy programs — course, rating, and what they achieved.'
+        }
       >
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {(data || []).map((g) => (
@@ -237,7 +242,12 @@ export function GraduatesPage() {
                 </div>
               )}
               <div className="p-4">
-                <h2 className="text-lg font-bold text-[#101c38] dark:text-white">{g.fullName}</h2>
+                <div className="flex items-start justify-between gap-2">
+                  <h2 className="text-lg font-bold text-[#101c38] dark:text-white">{g.fullName}</h2>
+                  <span className="shrink-0 text-xs font-bold text-[#1fb6d1]">
+                    {'★'.repeat(Math.min(5, Math.max(1, g.rating ?? 5)))}
+                  </span>
+                </div>
                 <p className="text-sm text-[#1fb6d1]">{g.courseTitle}</p>
                 <p className="mb-2 text-xs text-slate-400">
                   {new Date(g.graduationDate).toLocaleDateString(isAr ? 'ar' : 'en')}

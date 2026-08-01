@@ -415,13 +415,14 @@ export function GraduatesAdminPage() {
       endpoint="/graduates/admin/all"
       fields={[
         { key: 'fullName', labelAr: 'الاسم', labelEn: 'Full name', translatable: true },
-        { key: 'courseTitle', labelAr: 'الدورة', labelEn: 'Course', translatable: true },
+        { key: 'courseTitle', labelAr: 'الدورة التي أخذها', labelEn: 'Course taken', translatable: true },
+        { key: 'rating', labelAr: 'التقييم (1-5)', labelEn: 'Rating (1-5)', type: 'number' },
         { key: 'graduationDate', labelAr: 'تاريخ التخرج', labelEn: 'Graduation date' },
-        { key: 'description', labelAr: 'الوصف', labelEn: 'Description', type: 'textarea', translatable: true },
+        { key: 'description', labelAr: 'ماذا أنجز / مشروعه', labelEn: 'What they did / project', type: 'textarea', translatable: true },
         { key: 'imageUrl', labelAr: 'الصورة', labelEn: 'Image', type: 'image' },
         { key: 'certificateUrl', labelAr: 'صورة الشهادة', labelEn: 'Certificate image', type: 'image' },
       ]}
-      mapRow={(r) => `${r.fullName} — ${r.courseTitle || ''}`}
+      mapRow={(r) => `${r.fullName} — ${r.courseTitle || ''} ★${r.rating ?? 5}`}
     />
   );
 }

@@ -50,9 +50,25 @@ function slugify(value: string) {
   return value
     .trim()
     .toLowerCase()
-    .replace(/[^\w\u0600-\u06FF]+/g, '-')
+    .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
+}
+
+function workshopPublicUrl(slug: string) {
+  const site =
+    (import.meta as ImportMeta & { env: Record<string, string> }).env.VITE_SITE_URL ||
+    (typeof window !== 'undefined' ? window.location.origin.replace(/:\d+$/, ':5173') : '');
+  return `${site.replace(/\/$/, '')}/workshops/${slug}`;
+}
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function CalendarAdminPage() {
@@ -65,14 +81,17 @@ export function CalendarAdminPage() {
   });
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [slugLocked, setSlugLocked] = useState(false);
+  const [lastCreatedUrl, setLastCreatedUrl] = useState<string | null>(null);
 
   const now = Date.now();
   const rows = useMemo(() => data || [], [data]);
 
   const save = useMutation({
     mutationFn: async () => {
-      if (!form.title.trim() || !form.titleEn.trim() || !form.slug.trim() || !form.startsAt || !form.endsAt) {
-        throw new Error(isAr ? 'العنوان باللغتين وSlug والتواريخ مطلوبة' : 'AR/EN titles, slug, and dates are required');
+      const autoSlug = form.slug.trim() || slugify(form.titleEn) || slugify(form.title);
+      if (!form.title.trim() || !form.titleEn.trim() || !autoSlug || !form.startsAt || !form.endsAt) {
+        throw new Error(isAr ? 'العنوان باللغتين والتواريخ مطلوبة' : 'AR/EN titles and dates are required');
       }
       if (!form.presenterAr.trim() || !form.presenterEn.trim()) {
         throw new Error(isAr ? 'مقدّم الورشة باللغتين مطلوب' : 'Workshop presenter is required in both languages');
@@ -80,7 +99,7 @@ export function CalendarAdminPage() {
       const payload = {
         title: form.title.trim(),
         titleEn: form.titleEn.trim(),
-        slug: form.slug.trim(),
+        slug: autoSlug,
         description: form.description.trim() || undefined,
         descriptionEn: form.descriptionEn.trim() || undefined,
         coverUrl: form.coverUrl.trim() || undefined,
@@ -91,15 +110,32 @@ export function CalendarAdminPage() {
         isPublished: form.isPublished,
         isFeatured: form.isFeatured,
       };
-      if (editingId) return api(`/calendar/${editingId}`, { method: 'PATCH', body: JSON.stringify(payload) });
-      return api('/calendar', { method: 'POST', body: JSON.stringify(payload) });
+      if (editingId) return api<Workshop>(`/calendar/${editingId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      return api<Workshop>('/calendar', { method: 'POST', body: JSON.stringify(payload) });
     },
-    onSuccess: () => {
+    onSuccess: async (saved) => {
       const wasEdit = Boolean(editingId);
+      const url = workshopPublicUrl(saved.slug);
       qc.invalidateQueries({ queryKey: ['admin-calendar'] });
       setForm(empty);
       setEditingId(null);
-      notify.success(wasEdit ? (isAr ? 'تم حفظ الورشة' : 'Workshop saved') : isAr ? 'تم إنشاء الورشة' : 'Workshop created');
+      setSlugLocked(false);
+      if (!wasEdit) {
+        setLastCreatedUrl(url);
+        const copied = await copyText(url);
+        notify.success(
+          copied
+            ? isAr
+              ? `تم إنشاء الورشة ونسخ الرابط: ${url}`
+              : `Workshop created — URL copied: ${url}`
+            : isAr
+              ? `تم إنشاء الورشة. الرابط: ${url}`
+              : `Workshop created. URL: ${url}`,
+        );
+      } else {
+        setLastCreatedUrl(url);
+        notify.success(isAr ? 'تم حفظ الورشة' : 'Workshop saved');
+      }
     },
     onError: (err: Error) => notify.error(err.message || (isAr ? 'فشل الحفظ' : 'Save failed')),
   });
@@ -125,6 +161,8 @@ export function CalendarAdminPage() {
 
   function edit(row: Workshop) {
     setEditingId(row.id);
+    setSlugLocked(true);
+    setLastCreatedUrl(workshopPublicUrl(row.slug));
     setForm({
       title: row.title,
       titleEn: row.titleEn || '',
@@ -151,17 +189,17 @@ export function CalendarAdminPage() {
 
   function setAr(field: 'title' | 'description' | 'presenterAr', raw: string) {
     const next = filterArabicOnly(raw);
-    setForm((prev) => {
-      if (field === 'title') {
-        return { ...prev, title: next, slug: prev.slug || slugify(next) || prev.slug };
-      }
-      return { ...prev, [field]: next };
-    });
+    setForm((prev) => ({ ...prev, [field]: next }));
   }
 
   function setEn(field: 'titleEn' | 'descriptionEn' | 'presenterEn', raw: string) {
     const next = filterEnglishOnly(raw);
-    setForm((prev) => ({ ...prev, [field]: next }));
+    setForm((prev) => {
+      if (field === 'titleEn' && !editingId && !slugLocked) {
+        return { ...prev, titleEn: next, slug: slugify(next) };
+      }
+      return { ...prev, [field]: next };
+    });
   }
 
   return (
@@ -171,10 +209,31 @@ export function CalendarAdminPage() {
         title={isAr ? 'الورش' : 'Workshops'}
         description={
           isAr
-            ? 'ورش داخل المركز: عنوان، مقدّم، تفاصيل، وموعد. بدون موقع خارجي.'
-            : 'In-center workshops: title, presenter, details, and schedule. No external venue.'
+            ? 'يُنشأ رابط الورشة تلقائياً من الاسم الإنجليزي. انشر الورشة ليظهر رابطها في الموقع.'
+            : 'Workshop URL is auto-generated from the English title. Publish to show it on the website.'
         }
       />
+
+      {lastCreatedUrl ? (
+        <section className="admin-panel flex flex-wrap items-center justify-between gap-3 border border-[#1fb6d1]/30 bg-[#e8f9fc]/50">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wide text-[#1789a2]">
+              {isAr ? 'رابط الورشة للمشاركة' : 'Shareable workshop URL'}
+            </p>
+            <p className="mt-1 break-all text-sm font-semibold text-[var(--color-ink)]">{lastCreatedUrl}</p>
+          </div>
+          <Button
+            type="button"
+            variant="accent"
+            onClick={async () => {
+              const ok = await copyText(lastCreatedUrl);
+              notify.success(ok ? (isAr ? 'تم نسخ الرابط' : 'URL copied') : lastCreatedUrl);
+            }}
+          >
+            {isAr ? 'نسخ الرابط' : 'Copy URL'}
+          </Button>
+        </section>
+      ) : null}
 
       <section className="admin-panel">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -189,6 +248,7 @@ export function CalendarAdminPage() {
             <thead>
               <tr>
                 <th>{isAr ? 'الورشة' : 'Workshop'}</th>
+                <th>{isAr ? 'الرابط' : 'URL'}</th>
                 <th>{isAr ? 'المقدّم' : 'Presenter'}</th>
                 <th>{isAr ? 'الموعد' : 'Date'}</th>
                 <th>{isAr ? 'الحالة' : 'Status'}</th>
@@ -198,11 +258,30 @@ export function CalendarAdminPage() {
             <tbody>
               {rows.map((row) => {
                 const ended = new Date(row.endsAt).getTime() < now;
+                const url = workshopPublicUrl(row.slug);
                 return (
                   <tr key={row.id}>
                     <td>
                       <strong className="block text-sm">{row.title}</strong>
-                      <span className="text-xs text-[var(--color-ink-muted)]">/workshops/{row.slug}</span>
+                    </td>
+                    <td>
+                      {row.isPublished ? (
+                        <button
+                          type="button"
+                          className="max-w-[220px] truncate text-start text-xs font-semibold text-[#1789a2] hover:underline"
+                          title={url}
+                          onClick={async () => {
+                            const ok = await copyText(url);
+                            notify.success(ok ? (isAr ? 'تم نسخ الرابط' : 'URL copied') : url);
+                          }}
+                        >
+                          /workshops/{row.slug}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-[var(--color-ink-muted)]">
+                          {isAr ? 'غير منشور — لا يظهر بالموقع' : 'Unpublished — hidden on site'}
+                        </span>
+                      )}
                     </td>
                     <td className="text-sm">{row.presenterAr || '—'}</td>
                     <td className="text-xs">
@@ -284,8 +363,8 @@ export function CalendarAdminPage() {
             </h2>
             <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
               {isAr
-                ? 'الموقع ثابت داخل مركز DentaCollab. العربي عربي فقط والإنجليزي إنجليزي فقط.'
-                : 'Venue is fixed at DentaCollab Center. Arabic-only and English-only fields.'}
+                ? 'اكتب العنوان الإنجليزي ليُنشأ الرابط تلقائياً. انشر الورشة ليظهر الرابط في الموقع.'
+                : 'Enter the English title to auto-generate the URL. Publish so the link appears on the site.'}
             </p>
           </div>
           <div className="flex gap-2">
@@ -295,13 +374,21 @@ export function CalendarAdminPage() {
         </div>
 
         <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <Input
-            id="slug"
-            label="Slug *"
-            value={form.slug}
-            onChange={(e) => setForm({ ...form, slug: filterEnglishOnly(e.target.value.toLowerCase()).replace(/\s+/g, '-') })}
-            placeholder="guided-surgery-workshop"
-          />
+          <div className="space-y-1">
+            <Input
+              id="slug"
+              label={isAr ? 'رابط الورشة (تلقائي)' : 'Workshop URL slug (auto)'}
+              value={form.slug}
+              onChange={(e) => {
+                setSlugLocked(true);
+                setForm({ ...form, slug: filterEnglishOnly(e.target.value.toLowerCase()).replace(/\s+/g, '-') });
+              }}
+              placeholder="guided-surgery-workshop"
+            />
+            {form.slug ? (
+              <p className="truncate text-[11px] text-[var(--color-ink-muted)]">{workshopPublicUrl(form.slug)}</p>
+            ) : null}
+          </div>
           <Input
             id="startsAt"
             label={isAr ? 'البداية *' : 'Starts *'}
@@ -328,7 +415,7 @@ export function CalendarAdminPage() {
               checked={form.isPublished}
               onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
             />
-            {isAr ? 'منشورة على الموقع' : 'Published on website'}
+            {isAr ? 'منشورة على الموقع (يظهر الرابط)' : 'Published on website (shows URL)'}
           </label>
           <label className="flex items-center gap-2 text-sm font-semibold">
             <input
@@ -365,7 +452,7 @@ export function CalendarAdminPage() {
           <section className="bilingual-column is-en">
             <header>
               <strong>English *</strong>
-              <span>English only</span>
+              <span>English only — drives the URL</span>
             </header>
             <Input id="titleEn" label="Workshop title *" value={form.titleEn} onChange={(e) => setEn('titleEn', e.target.value)} />
             <Input
@@ -405,6 +492,7 @@ export function CalendarAdminPage() {
               variant="outline"
               onClick={() => {
                 setEditingId(null);
+                setSlugLocked(false);
                 setForm(empty);
               }}
             >

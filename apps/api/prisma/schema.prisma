@@ -293,6 +293,7 @@ model Graduate {
   courseId         String?
   course           Course?  @relation(fields: [courseId], references: [id], onDelete: SetNull)
   courseTitle      String?
+  rating           Int      @default(5)
   graduationDate   DateTime
   description      String?  @db.Text
   isPublished      Boolean  @default(true)
