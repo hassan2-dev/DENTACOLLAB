@@ -23,7 +23,8 @@ WORKDIR /app/apps/api
 RUN pnpm exec prisma generate \
   && pnpm exec nest build \
   && ls -la dist \
-  && test -f dist/main.js
+  && test -f dist/main.js \
+  && echo "Build OK: dist/main.js"
 
 FROM node:22-bookworm-slim AS runner
 RUN apt-get update -y \
