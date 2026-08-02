@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api';
 import { useLocale } from '../lib/locale';
+import { MEDIA, courseCover, stockPhoto } from '../lib/media';
 import { DynamicCourseRegistrationFields } from '../components/DynamicCourseRegistrationFields';
 
 const DentalHeroScene = lazy(() =>
@@ -39,7 +40,6 @@ type Course = {
   gallery: { url: string; alt?: string }[];
 };
 type Faq = { id: string; question: string; answer: string };
-type Testimonial = { id: string; name: string; profession: string; rating: number; review: string; imageUrl?: string };
 type Workshop = {
   id: string;
   slug: string;
@@ -73,17 +73,13 @@ export function HomePage() {
   const isAr = locale === 'ar';
   const courses = useQuery({ queryKey: ['courses', locale], queryFn: () => api<Course[]>('/courses') });
   const faq = useQuery({ queryKey: ['faq', locale], queryFn: () => api<Faq[]>('/faq') });
-  const testimonials = useQuery({
-    queryKey: ['testimonials', locale],
-    queryFn: () => api<Testimonial[]>('/testimonials'),
-  });
   const featuredWorkshop = useQuery({
     queryKey: ['workshop-featured', locale],
     queryFn: () => api<Workshop | null>(`/calendar/featured?locale=${locale}`),
   });
   const graduates = useQuery({
-    queryKey: ['graduates-home', locale],
-    queryFn: () => api<Graduate[]>('/graduates'),
+    queryKey: ['graduates-home', locale, 'featured'],
+    queryFn: () => api<Graduate[]>(`/graduates?featured=true&locale=${locale}`),
   });
   const featured = courses.data?.[0];
   const publishedCourses = courses.data ?? [];
@@ -124,8 +120,6 @@ export function HomePage() {
         disciplinesLabel: 'التخصصات الأساسية',
         disciplinesTitle: 'من التصميم الرقمي إلى النتيجة النهائية',
         coursesLabel: 'دورات مختارة',
-        testimonialsLabel: 'آراء المتدربين',
-        testimonialsTitle: 'ما يقوله الأطباء بعد التدريب',
         learnMore: 'اعرف المزيد',
         whyTitle: 'لماذا DentaCollab؟',
         aboutTitle: 'رؤية عملية للتدريب الرقمي',
@@ -157,8 +151,6 @@ export function HomePage() {
         disciplinesLabel: 'Core Disciplines',
         disciplinesTitle: 'From digital design to the final result',
         coursesLabel: 'Curated Courses',
-        testimonialsLabel: 'Trainee Feedback',
-        testimonialsTitle: 'What doctors say after training',
         learnMore: 'Learn More',
         whyTitle: 'Why DentaCollab?',
         aboutTitle: 'A practical vision for digital training',
@@ -191,7 +183,7 @@ export function HomePage() {
 
       <section className="relative min-h-[520px] overflow-hidden bg-white dark:bg-[#06101f] md:min-h-[680px]">
         <img
-          src="/dentacollab-hero.png"
+          src={MEDIA.hero}
           alt=""
           className={`absolute inset-0 h-full w-full object-cover ${isAr ? '-scale-x-100' : ''} dark:opacity-45`}
         />
@@ -303,58 +295,104 @@ export function HomePage() {
       </section>
 
       {publishedGraduates.length ? (
-        <section className="relative z-20 -mt-5 mb-2 px-4 sm:-mt-8 sm:mb-4 sm:px-6">
+        <section className="relative z-20 -mt-6 mb-6 px-4 sm:-mt-10 sm:mb-10">
           <div className="dc-container">
             <motion.div
-              initial={{ opacity: 0, y: 18 }}
+              initial={{ opacity: 0, y: 22 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, delay: 0.15 }}
+              transition={{ duration: 0.5, delay: 0.12 }}
+              className="relative overflow-hidden rounded-[1.75rem] border border-slate-200/90 bg-white shadow-[0_22px_55px_rgba(16,28,56,.1)] dark:border-[#1a2f4d] dark:bg-[#081426] dark:shadow-[0_22px_55px_rgba(0,0,0,.4)]"
             >
-              <div className="overflow-hidden rounded-[1.35rem] border border-white/15 bg-[#101c38] shadow-[0_18px_50px_rgba(16,28,56,.28)]">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4 sm:px-6">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[.16em] text-[#1fb6d1]">
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-[radial-gradient(ellipse_at_top,rgba(31,182,209,.14),transparent_70%)] dark:bg-[radial-gradient(ellipse_at_top,rgba(66,215,255,.12),transparent_70%)]" />
+              <div className="pointer-events-none absolute -end-16 top-8 h-40 w-40 rounded-full bg-[#1fb6d1]/10 blur-3xl" />
+
+              <div className="relative space-y-6 p-5 sm:p-7">
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div className="max-w-xl">
+                    <p className="text-[11px] font-bold uppercase tracking-[.18em] text-[#1fb6d1]">
                       {isAr ? 'خريجو الأكاديمية' : 'Academy graduates'}
                     </p>
-                    <h2 className="mt-1 text-lg font-black text-white sm:text-xl">
+                    <h2 className="mt-2 text-2xl font-black tracking-[-0.03em] text-[#101c38] sm:text-3xl dark:text-white">
                       {isAr ? 'قصص نجاح حقيقية من برامجنا' : 'Real success stories from our programs'}
                     </h2>
+                    <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                      {isAr
+                        ? 'أطباء وخريجون أكملوا التدريب وبدؤوا يطبّقون المسار الرقمي بثقة.'
+                        : 'Doctors and graduates who finished training and now apply the digital workflow with confidence.'}
+                    </p>
                   </div>
                   <Link
                     to="/graduates"
-                    className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-[#1fb6d1] hover:text-[#101c38]"
+                    className="inline-flex items-center gap-2 rounded-full bg-[#1fb6d1] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#1789a2] dark:bg-[#42d7ff] dark:text-[#040b18] dark:hover:bg-[#7be7ff]"
                   >
                     {copy.viewAll}
-                    <span aria-hidden>→</span>
+                    <span aria-hidden className="rtl:rotate-180">
+                      →
+                    </span>
                   </Link>
                 </div>
-                <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 py-5 sm:px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {publishedGraduates.slice(0, 8).map((g) => (
-                    <article
-                      key={g.id}
-                      className="w-[min(78vw,16.5rem)] shrink-0 snap-start rounded-2xl border border-white/10 bg-white/5 p-4"
-                    >
-                      <div className="flex items-center gap-3">
-                        {g.imageUrl ? (
-                          <img src={g.imageUrl} alt="" className="h-12 w-12 rounded-full object-cover" />
-                        ) : (
-                          <span className="grid h-12 w-12 place-items-center rounded-full bg-[#1fb6d1]/20 text-sm font-black text-[#7be7ff]">
-                            {g.fullName.charAt(0)}
-                          </span>
-                        )}
-                        <div className="min-w-0">
-                          <h3 className="truncate text-sm font-bold text-white">{g.fullName}</h3>
-                          <p className="truncate text-[11px] text-[#7be7ff]">{g.courseTitle}</p>
+
+                <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {publishedGraduates.slice(0, 8).map((g, index) => {
+                    const stars = Math.min(5, Math.max(1, g.rating ?? 5));
+                    return (
+                      <motion.article
+                        key={g.id}
+                        initial={{ opacity: 0, y: 14 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.18 + index * 0.05 }}
+                        className="w-[min(78vw,17.75rem)] shrink-0 snap-start"
+                      >
+                        <div className="flex h-full flex-col rounded-[1.25rem] bg-[#f3f7fb] p-4 transition duration-300 hover:-translate-y-0.5 hover:bg-[#e8f9fc] dark:bg-[#0b1a2e] dark:hover:bg-[#10243a]">
+                          <div className="flex items-center gap-3">
+                            {g.imageUrl ? (
+                              <img
+                                src={g.imageUrl}
+                                alt=""
+                                className="h-14 w-14 rounded-full object-cover ring-2 ring-white dark:ring-[#1a2f4d]"
+                              />
+                            ) : (
+                              <span className="grid h-14 w-14 place-items-center rounded-full bg-[#1fb6d1]/15 text-lg font-black text-[#1789a2] ring-2 ring-white dark:bg-[#42d7ff]/15 dark:text-[#7be7ff] dark:ring-[#1a2f4d]">
+                                {g.fullName.replace(/^د\.?\s*/u, '').charAt(0)}
+                              </span>
+                            )}
+                            <div className="min-w-0">
+                              <h3 className="truncate text-sm font-black text-[#101c38] dark:text-white">{g.fullName}</h3>
+                              <p className="mt-1 flex items-center gap-0.5 text-[11px] font-bold text-[#1fb6d1]" aria-label={`${stars}/5`}>
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                  <span key={i} className={i < stars ? 'opacity-100' : 'opacity-25'}>
+                                    ★
+                                  </span>
+                                ))}
+                              </p>
+                            </div>
+                          </div>
+
+                          {g.courseTitle ? (
+                            <p className="mt-4 line-clamp-2 text-[11px] font-semibold leading-5 text-[#1789a2] dark:text-[#7be7ff]">
+                              {g.courseTitle}
+                            </p>
+                          ) : null}
+
+                          {g.description ? (
+                            <p className="mt-2 line-clamp-3 flex-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                              {g.description}
+                            </p>
+                          ) : null}
+
+                          <div className="mt-4 flex items-center justify-between border-t border-slate-200/80 pt-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:border-[#19314f]">
+                            <span>{isAr ? 'خريج الأكاديمية' : 'Academy graduate'}</span>
+                            <span className="text-[#1fb6d1]">
+                              {new Date(g.graduationDate).toLocaleDateString(isAr ? 'ar-IQ' : 'en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                              })}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <p className="mt-3 text-[11px] font-bold tracking-wide text-[#1fb6d1]">
-                        {'★'.repeat(Math.min(5, Math.max(1, g.rating ?? 5)))}
-                      </p>
-                      {g.description ? (
-                        <p className="mt-2 line-clamp-3 text-xs leading-5 text-white/65">{g.description}</p>
-                      ) : null}
-                    </article>
-                  ))}
+                      </motion.article>
+                    );
+                  })}
                 </div>
               </div>
             </motion.div>
@@ -411,7 +449,7 @@ export function HomePage() {
                 </div>
                 <div className="relative h-36 shrink-0 overflow-hidden sm:h-auto sm:w-[38%] sm:max-w-sm">
                   <img
-                    src={featuredWorkshop.data.coverUrl || '/dentacollab-hero.png'}
+                    src={courseCover(featuredWorkshop.data.coverUrl, 2)}
                     alt={featuredWorkshop.data.title}
                     className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                   />
@@ -447,25 +485,25 @@ export function HomePage() {
                     number: '1',
                     title: isAr ? 'التصميم على Exocad' : 'Design on Exocad',
                     body: isAr ? 'تصميم الحالة بدقة عالية' : 'Design with precision',
-                    image: '/dentacollab-hero.png',
+                    image: stockPhoto(0),
                   },
                   {
                     number: '2',
                     title: isAr ? 'تصدير ملف STL' : 'Export STL File',
                     body: isAr ? 'تهيئة الملف للطباعة' : 'Prepare for printing',
-                    image: '/dentacollab-hero.png',
+                    image: stockPhoto(1),
                   },
                   {
                     number: '3',
                     title: isAr ? 'الطباعة ثلاثية الأبعاد' : '3D Printing',
                     body: isAr ? 'طباعة دقيقة وعالية الجودة' : 'High-quality printing',
-                    image: '/dentacollab-hero.png',
+                    image: stockPhoto(2),
                   },
                   {
                     number: '4',
                     title: isAr ? 'النتيجة النهائية' : 'Final Result',
                     body: isAr ? 'تقييم عملك واستخدامه' : 'Evaluate and use it',
-                    image: '/dentacollab-hero.png',
+                    image: stockPhoto(3),
                   },
                 ].map((step, index) => (
                   <article
@@ -501,7 +539,7 @@ export function HomePage() {
               <div className="relative flex min-h-64 flex-col justify-between overflow-hidden bg-[#071b3d] p-6 text-white lg:min-h-0">
                 <div className="absolute inset-0 opacity-30">
                   <img
-                    src="/dentacollab-hero.png"
+                    src={stockPhoto(4)}
                     alt=""
                     loading="lazy"
                     className="h-full w-full object-cover"
@@ -544,19 +582,19 @@ export function HomePage() {
               {
                 title: isAr ? 'التصميم الرقمي' : 'Digital Design',
                 body: isAr ? 'تصميم التركيبات والابتسامة عبر Exocad بمسار عملي واضح.' : 'Design restorations and smiles through a practical Exocad workflow.',
-                image: '/dentacollab-hero.png',
+                image: stockPhoto(5),
                 className: 'md:row-span-2',
               },
               {
                 title: isAr ? 'تخطيط الزرعات' : 'Implant Planning',
                 body: isAr ? 'تخطيط دقيق وموجّه للحالات الجراحية.' : 'Precise, guided planning for surgical cases.',
-                image: featured?.coverUrl || '/dentacollab-hero.png',
+                image: courseCover(featured?.coverUrl, 18),
                 className: '',
               },
               {
                 title: isAr ? 'الطباعة ثلاثية الأبعاد' : '3D Printing',
                 body: isAr ? 'من الملف الرقمي إلى نموذج جاهز للاستخدام.' : 'From a digital file to a production-ready model.',
-                image: '/dentacollab-hero.png',
+                image: stockPhoto(6),
                 className: '',
               },
             ].map((item) => (
@@ -591,13 +629,13 @@ export function HomePage() {
           <div
             className="flex snap-x snap-mandatory gap-5 overflow-x-auto px-[max(1.25rem,calc((100vw-72rem)/2+1.25rem))] pb-4 pe-[max(1.25rem,calc((100vw-72rem)/2+1.25rem))] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            {publishedCourses.map((course) => (
+            {publishedCourses.map((course, idx) => (
               <article
                 key={course.id}
                 className="w-[min(86vw,22rem)] shrink-0 snap-start overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_18px_50px_rgba(16,28,56,.06)] dark:border-[#19314f] dark:bg-[#081426] sm:w-[22rem]"
               >
                 <img
-                  src={course.coverUrl || '/dentacollab-hero.png'}
+                  src={courseCover(course.coverUrl, idx)}
                   alt={course.title}
                   className="h-48 w-full object-cover transition duration-500 hover:scale-[1.02]"
                 />
@@ -730,132 +768,6 @@ export function HomePage() {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-[#eef3f7] py-20 dark:bg-[#040b18]">
-        <div className="dc-container">
-          <div className="mb-9 flex items-end justify-between gap-5">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[.2em] text-[#1fb6d1]">{copy.stories}</p>
-              <h2 className="mt-3 text-3xl font-black text-[#101c38] dark:text-white">
-                {isAr ? 'خريجون أكملوا المسار وحققوا نتائج' : 'Graduates who completed the path'}
-              </h2>
-            </div>
-            <Link to="/graduates" className="hidden text-sm font-bold text-[#1fb6d1] sm:block">
-              {copy.viewAll} →
-            </Link>
-          </div>
-          {publishedGraduates.length ? (
-            <div className="grid gap-4 md:grid-cols-3">
-              {publishedGraduates.slice(0, 6).map((g) => (
-                <article
-                  key={g.id}
-                  className="overflow-hidden rounded-[1.5rem] border border-white bg-white shadow-sm dark:border-[#19314f] dark:bg-[#081426]"
-                >
-                  {g.imageUrl ? (
-                    <img src={g.imageUrl} alt={g.fullName} className="aspect-[4/3] w-full object-cover" />
-                  ) : (
-                    <div className="grid aspect-[4/3] place-items-center bg-[#e8f0f8] text-4xl font-black text-[#101c38]/35 dark:bg-[#0b1c33]">
-                      {g.fullName.charAt(0)}
-                    </div>
-                  )}
-                  <div className="p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-bold text-[#101c38] dark:text-white">{g.fullName}</h3>
-                      <span className="shrink-0 text-xs font-bold text-[#1fb6d1]">
-                        {'★'.repeat(Math.min(5, Math.max(1, g.rating ?? 5)))}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm text-[#1fb6d1]">{g.courseTitle}</p>
-                    {g.description ? (
-                      <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500 dark:text-slate-400">{g.description}</p>
-                    ) : null}
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-sm text-slate-500">{copy.noGraduates}</p>
-          )}
-        </div>
-      </section>
-
-      <section className="border-y border-slate-200 bg-white py-20 dark:border-[#172b48] dark:bg-[#06101f]">
-        <div className="dc-container">
-          <div className="mb-10 flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[.2em] text-[#1fb6d1]">{copy.testimonialsLabel}</p>
-              <h2 className="mt-3 text-3xl font-black tracking-[-0.03em] text-[#101c38] md:text-4xl dark:text-white">
-                {copy.testimonialsTitle}
-              </h2>
-              <span className="mt-4 block h-1 w-10 rounded-full bg-[#1fb6d1]" />
-            </div>
-            <Link to="/testimonials" className="text-sm font-bold text-[#1fb6d1]">
-              {copy.viewAll} →
-            </Link>
-          </div>
-          <div className="grid gap-5 md:grid-cols-3">
-            {[
-              ...(testimonials.data || []),
-              {
-                id: 'fallback-1',
-                name: isAr ? 'د. سارة محمد' : 'Dr. Sarah Mohammed',
-                profession: isAr ? 'طبيبة أسنان' : 'Dentist',
-                rating: 5,
-                imageUrl: undefined,
-                review: isAr
-                  ? 'المحتوى العملي غيّر طريقة تعاملي مع الحالات الرقمية ومنحني ثقة حقيقية.'
-                  : 'The practical content transformed how I approach digital cases and gave me real confidence.',
-              },
-              {
-                id: 'fallback-2',
-                name: isAr ? 'د. علي كريم' : 'Dr. Ali Kareem',
-                profession: isAr ? 'طبيب أسنان تجميلي' : 'Cosmetic Dentist',
-                rating: 5,
-                imageUrl: undefined,
-                review: isAr
-                  ? 'تجربة تدريبية منظمة، واضحة، ومتصلة مباشرة بالعمل السريري اليومي.'
-                  : 'A focused, organized experience directly connected to everyday clinical work.',
-              },
-              {
-                id: 'fallback-3',
-                name: isAr ? 'د. نور الحسن' : 'Dr. Noor Al Hassan',
-                profession: isAr ? 'طبيبة تركيبات' : 'Prosthodontist',
-                rating: 5,
-                imageUrl: undefined,
-                review: isAr
-                  ? 'أفضل ما في البرنامج هو الجمع بين التفكير السريري وإتقان الأدوات الرقمية.'
-                  : 'The strongest part of the program is how it connects clinical thinking with digital tools.',
-              },
-            ]
-              .slice(0, 3)
-              .map((item) => (
-                <blockquote
-                  key={item.id}
-                  className="flex min-h-[250px] flex-col rounded-[1.5rem] border border-slate-200 bg-[#f7fafc] p-6 shadow-[0_12px_40px_rgba(16,28,56,.06)] dark:border-[#19314f] dark:bg-[#081426]"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-3xl font-black leading-none text-[#1fb6d1]/35">“</span>
-                    <span className="text-xs font-bold tracking-wide text-[#1fb6d1]">{'★'.repeat(item.rating)}</span>
-                  </div>
-                  <p className="mt-4 flex-1 text-sm leading-8 text-slate-600 dark:text-slate-300">{item.review}</p>
-                  <div className="mt-6 flex items-center gap-3 border-t border-slate-200 pt-5 dark:border-[#19314f]">
-                    {item.imageUrl ? (
-                      <img src={item.imageUrl} alt="" className="h-11 w-11 rounded-full object-cover" />
-                    ) : (
-                      <span className="grid h-11 w-11 place-items-center rounded-full bg-[#101c38] text-sm font-black text-white">
-                        {item.name.charAt(0)}
-                      </span>
-                    )}
-                    <div>
-                      <cite className="block text-sm font-bold not-italic text-[#101c38] dark:text-white">{item.name}</cite>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">{item.profession}</span>
-                    </div>
-                  </div>
-                </blockquote>
-              ))}
           </div>
         </div>
       </section>

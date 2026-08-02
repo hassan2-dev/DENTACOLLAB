@@ -9,13 +9,15 @@ type ChatMessage = {
   role: 'user' | 'bot';
   text: string;
   whatsappUrl?: string | null;
+  link?: { to: string; label: string } | null;
 };
 
 type ChatReply = {
   answer: string;
   matched: boolean;
   whatsappUrl?: string | null;
-  mode: 'faq' | 'whatsapp';
+  link?: { to: string; label: string } | null;
+  mode: 'faq' | 'whatsapp' | 'greeting' | 'goodbye' | 'course' | 'workshop' | 'instructor';
 };
 
 type Bootstrap = {
@@ -104,7 +106,6 @@ export function FloatingChat() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
-  const [saidGoodbye, setSaidGoodbye] = useState(false);
   const noticeTimer = useRef<ReturnType<typeof window.setTimeout> | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -119,9 +120,6 @@ export function FloatingChat() {
     (isAr
       ? 'مرحباً، أنا مساعد DentaCollab. كيف أساعدك في الدورات أو التسجيل؟'
       : 'Hello — I’m the DentaCollab assistant. How can I help with courses or registration?');
-  const goodbye =
-    bootstrap.data?.goodbye ||
-    (isAr ? 'شكراً لتواصلك معنا. نتمنى لك يوماً سعيداً!' : 'Thanks for chatting with us. Have a great day!');
   const quickPrompts = bootstrap.data?.quickPrompts?.length
     ? bootstrap.data.quickPrompts
     : isAr
@@ -130,10 +128,14 @@ export function FloatingChat() {
 
   const [messages, setMessages] = useState<ChatMessage[]>([{ role: 'bot', text: welcome }]);
 
-  useEffect(() => {
+  const resetChat = useCallback(() => {
     setMessages([{ role: 'bot', text: welcome }]);
-    setSaidGoodbye(false);
+    setInput('');
   }, [welcome]);
+
+  useEffect(() => {
+    resetChat();
+  }, [resetChat]);
 
   const chat = useMutation({
     mutationFn: (message: string) =>
@@ -144,7 +146,12 @@ export function FloatingChat() {
     onSuccess: (data) => {
       setMessages((current) => [
         ...current,
-        { role: 'bot', text: data.answer, whatsappUrl: data.whatsappUrl },
+        {
+          role: 'bot',
+          text: data.answer,
+          whatsappUrl: data.whatsappUrl,
+          link: data.link ?? null,
+        },
       ]);
     },
     onError: () => {
@@ -234,14 +241,12 @@ export function FloatingChat() {
   }, [isAr, reactToEvent]);
 
   const closeChat = useCallback(() => {
-    if (open && !saidGoodbye) {
-      setMessages((current) => [...current, { role: 'bot', text: goodbye }]);
-      setSaidGoodbye(true);
-      window.setTimeout(() => setOpen(false), 900);
-      return;
-    }
     setOpen(false);
-  }, [goodbye, open, saidGoodbye]);
+    window.setTimeout(() => {
+      setMessages([{ role: 'bot', text: welcome }]);
+      setInput('');
+    }, 220);
+  }, [welcome]);
 
   useEffect(() => {
     if (!open) return;
@@ -363,7 +368,16 @@ export function FloatingChat() {
                         : 'rounded-2xl rounded-es-md border border-slate-200/90 bg-white text-[#243447] shadow-sm dark:border-[#1a2f4d] dark:bg-[#0a1628] dark:text-slate-200'
                     }`}
                   >
-                    <p>{message.text}</p>
+                    <p className="whitespace-pre-wrap">{message.text}</p>
+                    {message.link?.to ? (
+                      <Link
+                        to={message.link.to}
+                        data-chat-control
+                        className="inline-flex rounded-full bg-[#1fb6d1] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-[#159db5]"
+                      >
+                        {message.link.label}
+                      </Link>
+                    ) : null}
                     {message.whatsappUrl ? (
                       <a
                         href={message.whatsappUrl}
@@ -398,15 +412,16 @@ export function FloatingChat() {
             </div>
 
             <div className="border-t border-slate-200/80 bg-white p-3 dark:border-[#1a2f4d] dark:bg-[#071426]">
-              <div className="mb-2.5 flex flex-wrap gap-1.5">
+              <div className="mb-2.5 flex gap-1.5 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {quickPrompts.map((prompt) => (
                   <button
                     key={prompt}
                     type="button"
                     data-chat-control
+                    title={prompt}
                     onClick={() => send(prompt)}
                     disabled={chat.isPending}
-                    className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:border-[#1fb6d1] hover:bg-[#e8f9fc] hover:text-[#0f7f94] disabled:opacity-45 dark:border-[#1a2f4d] dark:bg-[#0a1628] dark:text-slate-300 dark:hover:border-[#1fb6d1]"
+                    className="max-w-[13.5rem] shrink-0 truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:border-[#1fb6d1] hover:bg-[#e8f9fc] hover:text-[#0f7f94] disabled:opacity-45 dark:border-[#1a2f4d] dark:bg-[#0a1628] dark:text-slate-300 dark:hover:border-[#1fb6d1]"
                   >
                     {prompt}
                   </button>
@@ -457,7 +472,7 @@ export function FloatingChat() {
               onClick={() => {
                 if (open) closeChat();
                 else {
-                  setSaidGoodbye(false);
+                  resetChat();
                   setOpen(true);
                 }
               }}

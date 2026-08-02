@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api';
 import { useLocale } from '../lib/locale';
-import { personPhoto } from '../lib/media';
+import { personPhoto, stockPhoto } from '../lib/media';
 import { LogoLoader } from '../components/LogoLoader';
 
 type TeamMember = {
@@ -155,7 +155,7 @@ export function AboutPage() {
             <div className="absolute -inset-6 rounded-[2rem] bg-[#1fb6d1]/15 blur-2xl" />
             <div className="relative overflow-hidden rounded-[1.8rem] border border-white/15 shadow-[0_30px_80px_rgba(0,0,0,.4)]">
               <img
-                src="/dentacollab-hero.png"
+                src={stockPhoto(12)}
                 alt="DentaCollab"
                 className="aspect-[4/5] w-full object-cover sm:aspect-[5/6]"
               />

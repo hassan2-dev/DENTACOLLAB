@@ -89,6 +89,11 @@ class UpsertGraduateDto {
   @IsBoolean()
   isPublished?: boolean;
 
+  @ApiPropertyOptional({ description: 'Show this graduate review on the homepage' })
+  @IsOptional()
+  @IsBoolean()
+  featured?: boolean;
+
   @ApiPropertyOptional({ type: [GraduateTranslationDto] })
   @IsOptional()
   @IsArray()
@@ -103,9 +108,14 @@ const graduateFields = ['fullName', 'courseTitle', 'description'];
 export class GraduatesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(admin = false, locale: Locale = Locale.ar) {
+  async list(admin = false, locale: Locale = Locale.ar, featuredOnly = false) {
     const rows = await this.prisma.graduate.findMany({
-      where: admin ? undefined : { isPublished: true },
+      where: admin
+        ? undefined
+        : {
+            isPublished: true,
+            ...(featuredOnly ? { featured: true } : {}),
+          },
       include: { course: true, translations: true },
       orderBy: { graduationDate: 'desc' },
     });
@@ -200,8 +210,9 @@ export class GraduatesController {
 
   @Public()
   @Get()
-  list(@Query('locale') locale?: string) {
-    return this.service.list(false, resolveLocale(locale));
+  list(@Query('locale') locale?: string, @Query('featured') featured?: string) {
+    const featuredOnly = featured === '1' || featured === 'true';
+    return this.service.list(false, resolveLocale(locale), featuredOnly);
   }
 
   @ApiBearerAuth()

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import { SiteLayout } from './components/SiteLayout';
@@ -10,7 +10,6 @@ import {
   InstructorsPage,
   GalleryPage,
   GraduatesPage,
-  TestimonialsPage,
   FaqPage,
 } from './pages/ContentPages';
 import { AboutPage } from './pages/AboutPage';
@@ -41,7 +40,7 @@ export default function App() {
                 <Route path="benefits" element={<BenefitsPage />} />
                 <Route path="gallery" element={<GalleryPage />} />
                 <Route path="graduates" element={<GraduatesPage />} />
-                <Route path="testimonials" element={<TestimonialsPage />} />
+                <Route path="testimonials" element={<Navigate to="/graduates" replace />} />
                 <Route path="faq" element={<FaqPage />} />
                 <Route path="chat" element={<ChatPage />} />
                 <Route path="contact" element={<ContactPage />} />

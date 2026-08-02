@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api';
 import { useLocale } from '../lib/locale';
+import { courseCover } from '../lib/media';
 import { LogoLoader } from '../components/LogoLoader';
 
 export type Workshop = {
@@ -86,7 +87,7 @@ export function WorkshopsPage() {
                     >
                       <div className="relative h-44 sm:h-full sm:min-h-[180px]">
                         <img
-                          src={workshop.coverUrl || '/dentacollab-hero.png'}
+                          src={courseCover(workshop.coverUrl, index)}
                           alt={workshop.title}
                           className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
                         />
@@ -229,7 +230,7 @@ export function WorkshopDetailsPage() {
           </div>
           <div className="overflow-hidden rounded-[1.5rem]">
             <img
-              src={data.coverUrl || '/dentacollab-hero.png'}
+              src={courseCover(data.coverUrl, 11)}
               alt={data.title}
               className="aspect-[4/3] w-full object-cover"
             />

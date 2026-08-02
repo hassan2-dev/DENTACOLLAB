@@ -87,14 +87,6 @@ const groups: Array<{
         hintEn: 'Success stories',
         icon: 'cap',
       },
-      {
-        to: '/testimonials',
-        ar: 'آراء المتدربين',
-        en: 'Testimonials',
-        hintAr: 'التقييمات',
-        hintEn: 'Reviews',
-        icon: 'star',
-      },
     ],
   },
   {

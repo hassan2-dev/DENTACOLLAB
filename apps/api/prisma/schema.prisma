@@ -297,6 +297,7 @@ model Graduate {
   graduationDate   DateTime
   description      String?  @db.Text
   isPublished      Boolean  @default(true)
+  featured         Boolean  @default(false)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   translations     GraduateTranslation[]

@@ -14,7 +14,7 @@ type Field = {
   key: string;
   labelAr: string;
   labelEn: string;
-  type?: 'text' | 'textarea' | 'number' | 'select' | 'image';
+  type?: 'text' | 'textarea' | 'number' | 'select' | 'image' | 'checkbox';
   options?: string[];
   translatable?: boolean;
 };
@@ -109,7 +109,9 @@ function CrudBox({
 
       const payload: Record<string, unknown> = {};
       fields.forEach((f) => {
-        if (f.type === 'number' && form[f.key] != null && form[f.key] !== '') {
+        if (f.type === 'checkbox') {
+          payload[f.key] = form[f.key] === 'true';
+        } else if (f.type === 'number' && form[f.key] != null && form[f.key] !== '') {
           payload[f.key] = Number(form[f.key]);
         } else if (!f.key.startsWith('en_')) {
           payload[f.key] = typeof form[f.key] === 'string' ? form[f.key].trim() : form[f.key];
@@ -186,6 +188,20 @@ function CrudBox({
             </option>
           ))}
         </Select>
+      );
+    }
+    if (f.type === 'checkbox') {
+      return (
+        <label key={key} htmlFor={key} className="flex items-start gap-3 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-ink)]">
+          <input
+            id={key}
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 accent-[var(--color-brand)]"
+            checked={form[key] === 'true'}
+            onChange={(e) => setForm({ ...form, [key]: e.target.checked ? 'true' : 'false' })}
+          />
+          <span>{label}</span>
+        </label>
       );
     }
     return (
@@ -468,15 +484,23 @@ export function GraduatesAdminPage() {
         { key: 'graduationDate', labelAr: 'تاريخ التخرج', labelEn: 'Graduation date' },
         {
           key: 'description',
-          labelAr: 'ماذا أنجز / مشروعه',
-          labelEn: 'What they did / project',
+          labelAr: 'رأي الخريج / قصة النجاح',
+          labelEn: 'Graduate review / success story',
           type: 'textarea',
           translatable: true,
+        },
+        {
+          key: 'featured',
+          labelAr: 'عرض رأيه في الصفحة الرئيسية (قصص النجاح)',
+          labelEn: 'Show review on homepage (success stories)',
+          type: 'checkbox',
         },
         { key: 'imageUrl', labelAr: 'الصورة', labelEn: 'Image', type: 'image' },
         { key: 'certificateUrl', labelAr: 'صورة الشهادة', labelEn: 'Certificate image', type: 'image' },
       ]}
-      mapRow={(r) => `${r.fullName} — ${r.courseTitle || ''} ★${r.rating ?? 5}`}
+      mapRow={(r) =>
+        `${r.fullName} — ${r.courseTitle || ''} ★${r.rating ?? 5}${r.featured ? ' · الرئيسية' : ''}`
+      }
     />
   );
 }

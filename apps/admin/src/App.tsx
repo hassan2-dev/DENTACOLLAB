@@ -10,7 +10,6 @@ import {
   FaqAdminPage,
   GraduatesAdminPage,
   InstructorsAdminPage,
-  TestimonialsAdminPage,
 } from './pages/SimpleCrudPages';
 import {
   CalendarAdminPage,
@@ -43,9 +42,9 @@ export default function App() {
               <Route path="faq" element={<FaqAdminPage />} />
               <Route path="faq/new" element={<FaqAdminPage />} />
               <Route path="faq/:id/edit" element={<FaqAdminPage />} />
-              <Route path="testimonials" element={<TestimonialsAdminPage />} />
-              <Route path="testimonials/new" element={<TestimonialsAdminPage />} />
-              <Route path="testimonials/:id/edit" element={<TestimonialsAdminPage />} />
+              <Route path="testimonials" element={<Navigate to="/graduates" replace />} />
+              <Route path="testimonials/new" element={<Navigate to="/graduates/new" replace />} />
+              <Route path="testimonials/:id/edit" element={<Navigate to="/graduates" replace />} />
               <Route path="gallery" element={<GalleryAdminPage />} />
               <Route path="graduates" element={<GraduatesAdminPage />} />
               <Route path="graduates/new" element={<GraduatesAdminPage />} />

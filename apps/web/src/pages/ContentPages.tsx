@@ -227,8 +227,8 @@ export function GraduatesPage() {
         title={isAr ? 'الخريجون' : 'Graduates'}
         subtitle={
           isAr
-            ? 'أشخاص أكملوا برامج الأكاديمية: الدورة، التقييم، وما أنجزوه.'
-            : 'People who completed academy programs — course, rating, and what they achieved.'
+            ? 'خريجو الأكاديمية: الدورة، التقييم، ورأيهم بعد إتمام البرنامج.'
+            : 'Academy graduates: course, rating, and their review after completing the program.'
         }
       >
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

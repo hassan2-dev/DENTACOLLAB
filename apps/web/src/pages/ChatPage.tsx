@@ -6,13 +6,19 @@ import { motion } from 'framer-motion';
 import { api } from '../lib/api';
 import { useLocale } from '../lib/locale';
 
-type Msg = { role: 'user' | 'bot'; text: string; whatsappUrl?: string | null };
+type Msg = {
+  role: 'user' | 'bot';
+  text: string;
+  whatsappUrl?: string | null;
+  link?: { to: string; label: string } | null;
+};
 
 type ChatReply = {
   answer: string;
   matched: boolean;
   whatsappUrl?: string | null;
-  mode: 'faq' | 'whatsapp';
+  link?: { to: string; label: string } | null;
+  mode: 'faq' | 'whatsapp' | 'greeting' | 'goodbye' | 'course' | 'workshop' | 'instructor';
 };
 
 type Bootstrap = {
@@ -101,7 +107,12 @@ export function ChatPage() {
     onSuccess: (data) => {
       setMessages((prev) => [
         ...prev,
-        { role: 'bot', text: data.answer, whatsappUrl: data.whatsappUrl },
+        {
+          role: 'bot',
+          text: data.answer,
+          whatsappUrl: data.whatsappUrl,
+          link: data.link ?? null,
+        },
       ]);
     },
     onError: () => {
@@ -269,7 +280,15 @@ export function ChatPage() {
                       : 'rounded-2xl rounded-es-md border border-slate-200/90 bg-white text-[#243447] shadow-sm dark:border-[#1a2f4d] dark:bg-[#0a1628] dark:text-[#e7f2ff]'
                   }`}
                 >
-                  <p>{m.text}</p>
+                  <p className="whitespace-pre-wrap">{m.text}</p>
+                  {m.link?.to ? (
+                    <Link
+                      to={m.link.to}
+                      className="inline-flex rounded-full bg-[#1fb6d1] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#159db5]"
+                    >
+                      {m.link.label}
+                    </Link>
+                  ) : null}
                   {m.whatsappUrl ? (
                     <a
                       href={m.whatsappUrl}
@@ -303,14 +322,15 @@ export function ChatPage() {
           </div>
 
           <div className="border-t border-slate-200/80 bg-white p-3 dark:border-[#1a2f4d] dark:bg-[#071426] sm:p-4">
-            <div className="mb-3 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="mb-3 flex gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {quickPrompts.map((prompt) => (
                 <button
                   key={prompt}
                   type="button"
+                  title={prompt}
                   onClick={() => send(prompt)}
                   disabled={mutation.isPending}
-                  className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:border-[#1fb6d1] hover:bg-[#e8f9fc] hover:text-[#0f7f94] disabled:opacity-45 dark:border-[#1a2f4d] dark:bg-[#0a1628] dark:text-slate-300 dark:hover:border-[#1fb6d1]"
+                  className="max-w-[16rem] shrink-0 truncate rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:border-[#1fb6d1] hover:bg-[#e8f9fc] hover:text-[#0f7f94] disabled:opacity-45 dark:border-[#1a2f4d] dark:bg-[#0a1628] dark:text-slate-300 dark:hover:border-[#1fb6d1]"
                 >
                   {prompt}
                 </button>

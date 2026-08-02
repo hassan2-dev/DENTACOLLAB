@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useLocale } from '../lib/locale';
+import { courseCover } from '../lib/media';
 import { LogoLoader } from '../components/LogoLoader';
 
 type Course = {
@@ -64,14 +65,14 @@ export function CoursesPage() {
             <LogoLoader label={isAr ? 'جاري تحميل الدورات' : 'Loading courses'} />
           ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {(data || []).map((course) => (
+            {(data || []).map((course, idx) => (
               <Link
                 key={course.id}
                 to={`/courses/${course.slug}`}
                 className="group overflow-hidden rounded-[1.6rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl dark:border-[#19314f] dark:bg-[#081426]"
               >
                 <img
-                  src={course.coverUrl || '/dentacollab-hero.png'}
+                  src={courseCover(course.coverUrl, idx)}
                   alt={course.title}
                   className="h-52 w-full object-cover transition duration-500 group-hover:scale-105"
                 />

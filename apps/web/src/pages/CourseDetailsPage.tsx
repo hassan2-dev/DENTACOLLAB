@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api } from '../lib/api';
 import { useLocale } from '../lib/locale';
+import { courseCover } from '../lib/media';
 import { LogoLoader } from '../components/LogoLoader';
 import { DynamicCourseRegistrationFields } from '../components/DynamicCourseRegistrationFields';
 
@@ -127,19 +128,15 @@ export function CourseDetailsPage() {
         years: 'سنوات خبرة',
         trainees: 'متدرب',
         hours: 'ساعة تدريب',
-        prep: 'قبل البداية',
-        prepTitle: 'مهام تحضيرية بسيطة',
-        prepBody: 'جهّز نفسك لتحقيق أفضل استفادة من التجربة التدريبية.',
+        prep: 'ما توفره الأكاديمية',
+        prepTitle: 'كل شيء جاهز لك',
+        prepBody: 'ما تحتاج تجهّز شيء مسبقاً — الأكاديمية توفر لك كل ما تحتاجه للتدريب، بما فيه حساب رسمي معتمد من exocad.',
         prepItems: [
-          ['▣', 'تجهيز الحاسوب', 'تأكد من ملاءمة مواصفات الجهاز'],
-          ['⌁', 'تثبيت البرامج', 'حمّل البرامج المطلوبة مسبقاً'],
-          ['◇', 'مراجعة الأساسيات', 'اطّلع على المواد التمهيدية'],
-          ['✓', 'إكمال التسجيل', 'أرسل بياناتك لتأكيد المقعد'],
+          ['▣', 'تجهيز كامل من الأكاديمية', 'الأجهزة والبيئة التدريبية جاهزة داخل القاعة'],
+          ['⌁', 'البرامج مثبتة مسبقاً', 'ما تحتاج تحمّل أو تثبّت برامج بنفسك'],
+          ['◇', 'حساب exocad رسمي معتمد', 'نوفّر لك حساباً رسمياً معتمداً من exocad خلال التدريب'],
+          ['✓', 'أنت فقط سجّل واحضر', 'أكمل التسجيل، والباقي تتولاه الأكاديمية'],
         ] as const,
-        results: 'نتائج حقيقية',
-        success: 'نجاحات المتدربين',
-        galleryLink: 'شاهد المعرض ←',
-        project: 'مشروع تطبيقي',
         start: 'ابدأ رحلتك',
         book: 'احجز مقعدك الآن',
         bookBody: 'املأ استمارة التسجيل الخاصة بهذه الدورة وسيتواصل معك فريقنا.',
@@ -192,19 +189,15 @@ export function CourseDetailsPage() {
         years: 'Years experience',
         trainees: 'Trainees',
         hours: 'Training hours',
-        prep: 'Before you start',
-        prepTitle: 'Simple preparation tasks',
-        prepBody: 'Get ready to make the most of the training experience.',
+        prep: 'What the academy provides',
+        prepTitle: 'Everything is ready for you',
+        prepBody: 'No prep needed — the academy provides everything for training, including an official certified exocad account.',
         prepItems: [
-          ['▣', 'Prepare your computer', 'Make sure your device meets the requirements'],
-          ['⌁', 'Install software', 'Download the required tools in advance'],
-          ['◇', 'Review basics', 'Go through the preparatory materials'],
-          ['✓', 'Complete registration', 'Submit your details to confirm your seat'],
+          ['▣', 'Fully prepared by the academy', 'Training devices and classroom environment are ready'],
+          ['⌁', 'Software pre-installed', 'You don’t need to download or set up tools yourself'],
+          ['◇', 'Official certified exocad account', 'We provide an official exocad-certified account during training'],
+          ['✓', 'Just register and attend', 'Complete registration — the academy handles the rest'],
         ] as const,
-        results: 'Real results',
-        success: 'Learner outcomes',
-        galleryLink: 'View gallery →',
-        project: 'Applied project',
         start: 'Start your journey',
         book: 'Book your seat now',
         bookBody: 'Complete this course registration form and our team will contact you.',
@@ -236,7 +229,7 @@ export function CourseDetailsPage() {
 
       <section className="relative min-h-[420px] overflow-hidden md:min-h-[650px]">
         <img
-          src={course.coverUrl || '/dentacollab-hero.png'}
+          src={courseCover(course.coverUrl, 7)}
           alt={course.title}
           className={`absolute inset-0 h-full w-full object-cover ${isAr ? '-scale-x-100' : ''}`}
         />
@@ -480,10 +473,11 @@ export function CourseDetailsPage() {
 
                   <Link
                     to={`/instructors/${instructor.id}`}
-                    className="mt-6 inline-flex w-fit rounded-full bg-[#101c38] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#1fb6d1] hover:!text-[#04101c]"
+                    className="mt-6 inline-flex w-fit items-center rounded-full bg-[#1fb6d1] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#1789a2] dark:bg-[#42d7ff] dark:text-[#040b18] dark:hover:bg-[#7be7ff]"
                   >
                     {copy.viewInstructor}
                   </Link>
+             
                 </div>
               </div>
             ))}
@@ -508,44 +502,6 @@ export function CourseDetailsPage() {
                 <h3 className="mt-4 font-bold">{title}</h3>
                 <p className="mt-2 text-xs leading-6 text-slate-500 dark:text-slate-400">{body}</p>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-[#eef4f8] py-20 dark:bg-[#040b18]">
-        <div className="dc-container">
-          <div className="mb-9 flex items-end justify-between gap-5">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[.18em] text-[#1fb6d1]">{copy.results}</p>
-              <h2 className="mt-3 text-3xl font-bold">{copy.success}</h2>
-            </div>
-            <Link to="/gallery" className="hidden text-sm font-bold text-[#1fb6d1] sm:block">
-              {copy.galleryLink}
-            </Link>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            {(course.gallery.length
-              ? course.gallery.slice(0, 3)
-              : [
-                  { url: '/dentacollab-hero.png', alt: 'Digital result' },
-                  { url: '/dentacollab-hero.png', alt: 'Digital design' },
-                  { url: '/dentacollab-hero.png', alt: 'Digital lab' },
-                ]
-            ).map((item, index) => (
-              <figure
-                key={`${item.url}-${index}`}
-                className="group overflow-hidden rounded-2xl bg-white shadow-sm dark:border dark:border-[#19314f] dark:bg-[#081426]"
-              >
-                <img
-                  src={item.url}
-                  alt={item.alt || ''}
-                  className="aspect-[4/3] w-full object-cover transition duration-500 group-hover:scale-105"
-                />
-                <figcaption className="p-4 text-sm font-bold">
-                  {copy.project} {index + 1}
-                </figcaption>
-              </figure>
             ))}
           </div>
         </div>

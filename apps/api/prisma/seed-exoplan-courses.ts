@@ -63,11 +63,10 @@ const exoplanCourses: CourseSeed[] = [
       ],
       requirements: [
         'خريج طب أسنان أو ممارس في بداية مسار الزراعة الرقمية',
-        'حاسوب مناسب لتشغيل برامج التخطيط ثلاثي الأبعاد',
         'يفضّل توفر ملفات DICOM وSTL للتطبيق العملي',
       ],
       duration: 'يومان',
-      certificate: 'شهادة مشاركة — مع متابعة وتدريب مستمر لمدة شهر بعد الكورس',
+      certificate: 'شهادة مشاركة (غير معتمدة)',
     },
     en: {
       title: 'Exoplan Course for Graduates (Basic Level)',
@@ -85,11 +84,10 @@ const exoplanCourses: CourseSeed[] = [
       ],
       requirements: [
         'Dental graduate or early-career implant practitioner',
-        'A computer suitable for 3D planning software',
         'DICOM and STL case files are recommended for hands-on practice',
       ],
       duration: '2 days',
-      certificate: 'Participation certificate — with one month of continued follow-up and training after the course',
+      certificate: 'Participation certificate (not accredited)',
     },
     curriculum: [
       {
@@ -188,10 +186,9 @@ const exoplanCourses: CourseSeed[] = [
       requirements: [
         'طالب طب أسنان',
         'اهتمام بمجال الزراعة الرقمية والتخطيط ثلاثي الأبعاد',
-        'حاسوب مناسب للتطبيق العملي إن أمكن',
       ],
       duration: 'يوم واحد',
-      certificate: 'شهادة مشاركة',
+      certificate: 'شهادة مشاركة (غير معتمدة)',
     },
     en: {
       title: 'Exoplan Course for Students (Basic Level)',
@@ -209,10 +206,9 @@ const exoplanCourses: CourseSeed[] = [
       requirements: [
         'Dental student',
         'Interest in digital implant planning',
-        'A suitable computer for hands-on practice when available',
       ],
       duration: '1 day',
-      certificate: 'Participation certificate',
+      certificate: 'Participation certificate (not accredited)',
     },
     curriculum: [
       {
@@ -288,11 +284,10 @@ const exoplanCourses: CourseSeed[] = [
       requirements: [
         'إتمام كورس الأساسيات (Basic Level) لبرنامج Exoplan',
         'طبيب أسنان أو اختصاصي زراعة أو جراحة فم وفكين',
-        'حاسوب مناسب لتطبيقات التخطيط والتصميم ثلاثي الأبعاد',
         'يفضّل توفر ملفات حالات DICOM وSTL للتطبيق العملي',
       ],
       duration: '4 أيام',
-      certificate: 'شهادة معتمدة رسمياً من شركة exocad',
+      certificate: 'شهادة مشاركة (غير معتمدة)',
     },
     en: {
       title: 'Professional Exoplan Course (Advanced)',
@@ -311,11 +306,10 @@ const exoplanCourses: CourseSeed[] = [
       requirements: [
         'Completion of the Exoplan Basic Level course',
         'Dentist, implantologist or oral and maxillofacial professional',
-        'A suitable computer for 3D planning and design',
         'DICOM and STL case files are recommended for hands-on practice',
       ],
       duration: '4 days',
-      certificate: 'Official certificate accredited by exocad',
+      certificate: 'Participation certificate (not accredited)',
     },
     curriculum: [
       {

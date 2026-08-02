@@ -1,6 +1,8 @@
 import { PrismaClient, UserRole, CourseLevel, PublishStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { EXOPLAN_COURSE_SLUGS, seedExoplanCourses } from './seed-exoplan-courses';
+import { seedGraduatesAndTestimonials } from './seed-graduates-testimonials';
+import { seedFaqs } from './seed-faqs';
 
 const prisma = new PrismaClient();
 
@@ -196,7 +198,6 @@ async function main() {
       requirements: [
         'طبيب أسنان أو اختصاصي زراعة أسنان أو جراحة فم وفكين',
         'معرفة أساسية بمبادئ زراعة الأسنان',
-        'حاسوب مناسب لتطبيقات التخطيط والتصميم ثلاثي الأبعاد',
         'يفضّل توفر ملفات حالات DICOM وSTL للتطبيق العملي',
       ],
       duration: 'ماستر كلاس تدريبي مكثف',
@@ -225,7 +226,6 @@ async function main() {
       requirements: [
         'طبيب أسنان أو اختصاصي زراعة أسنان أو جراحة فم وفكين',
         'معرفة أساسية بمبادئ زراعة الأسنان',
-        'حاسوب مناسب لتطبيقات التخطيط والتصميم ثلاثي الأبعاد',
         'يفضّل توفر ملفات حالات DICOM وSTL للتطبيق العملي',
       ],
       duration: 'ماستر كلاس تدريبي مكثف',
@@ -604,7 +604,6 @@ async function main() {
       requirements: [
         'Dentist, implantologist or oral and maxillofacial professional',
         'Basic understanding of implant dentistry',
-        'A suitable computer for 3D planning and design',
         'DICOM and STL case files are recommended for hands-on practice',
       ],
       duration: 'Intensive masterclass',
@@ -629,7 +628,6 @@ async function main() {
       requirements: [
         'Dentist, implantologist or oral and maxillofacial professional',
         'Basic understanding of implant dentistry',
-        'A suitable computer for 3D planning and design',
         'DICOM and STL case files are recommended for hands-on practice',
       ],
       duration: 'Intensive masterclass',
@@ -638,186 +636,17 @@ async function main() {
   });
 
   await seedExoplanCourses(prisma, publishedInstructorIds);
+  await seedGraduatesAndTestimonials(prisma);
+  await seedFaqs(prisma);
 
   await prisma.course.updateMany({
     where: { slug: { notIn: EXOPLAN_COURSE_SLUGS } },
     data: { status: PublishStatus.ARCHIVED },
   });
 
-  await prisma.faq.createMany({
-    data: [
-      {
-        question: 'هل الدورات حضورية أم عن بعد؟',
-        answer: 'نقدم برامج حضورية وهجينة حسب نوع الدورة.',
-        category: 'عام',
-      },
-      {
-        question: 'هل أحصل على شهادة؟',
-        answer: 'نعم، يحصل المتخرج على شهادة معتمدة من DentaCollab.',
-        category: 'الشهادات',
-      },
-    ],
-    skipDuplicates: true,
-  });
+  // FAQs are seeded via seedFaqs()
 
-  const faqRows = await prisma.faq.findMany({ orderBy: { createdAt: 'asc' } });
-  const faqEnglish = [
-    {
-      question: 'Are the courses in-person or online?',
-      answer: 'We offer in-person and hybrid programs depending on the course.',
-      category: 'General',
-    },
-    {
-      question: 'Will I receive a certificate?',
-      answer: 'Yes. Graduates receive an accredited DentaCollab certificate.',
-      category: 'Certificates',
-    },
-  ];
-  for (const [index, row] of faqRows.slice(0, 2).entries()) {
-    const copy = faqEnglish[index];
-    await prisma.faqTranslation.upsert({
-      where: { faqId_locale: { faqId: row.id, locale: 'en' } },
-      update: copy,
-      create: { faqId: row.id, locale: 'en', ...copy },
-    });
-  }
-
-  const existingTestimonial = await prisma.testimonial.findFirst({
-    where: { name: 'د. أحمد نور' },
-  });
-  const testimonial =
-    existingTestimonial ??
-    (await prisma.testimonial.create({
-      data: {
-        name: 'د. أحمد نور',
-        profession: 'طبيب أسنان',
-        rating: 5,
-        review: 'تجربة رائعة ونقلة نوعية في ممارستي الرقمية.',
-        imageUrl: '/dentacollab-hero.png',
-      },
-    }));
-  await prisma.testimonialTranslation.upsert({
-    where: { testimonialId_locale: { testimonialId: testimonial.id, locale: 'en' } },
-    update: {
-      name: 'Dr. Ahmed Noor',
-      profession: 'Dentist',
-      review: 'An outstanding experience that transformed my digital practice.',
-    },
-    create: {
-      testimonialId: testimonial.id,
-      locale: 'en',
-      name: 'Dr. Ahmed Noor',
-      profession: 'Dentist',
-      review: 'An outstanding experience that transformed my digital practice.',
-    },
-  });
-
-  const extraTestimonials = [
-    {
-      name: 'د. سارة محمود',
-      profession: 'أخصائية زراعة أسنان',
-      review: 'المحتوى عملي جداً والتخطيط على Exoplan صار أوضح بعد الدورة.',
-      imageUrl: '/dentacollab-hero.png',
-      en: {
-        name: 'Dr. Sara Mahmoud',
-        profession: 'Implantologist',
-        review: 'Very practical content — Exoplan planning became much clearer after the course.',
-      },
-    },
-    {
-      name: 'د. كريم العلي',
-      profession: 'جراح فم وفكين',
-      review: 'تنظيم ممتاز وتطبيقات سريرية حقيقية تفيد العيادة مباشرة.',
-      imageUrl: '/dentacollab-hero.png',
-      en: {
-        name: 'Dr. Kareem Al-Ali',
-        profession: 'Oral Surgeon',
-        review: 'Excellent structure with real clinical applications that help the clinic immediately.',
-      },
-    },
-  ];
-  for (const item of extraTestimonials) {
-    const existing = await prisma.testimonial.findFirst({ where: { name: item.name } });
-    const row =
-      existing ??
-      (await prisma.testimonial.create({
-        data: {
-          name: item.name,
-          profession: item.profession,
-          rating: 5,
-          review: item.review,
-          imageUrl: item.imageUrl,
-          isPublished: true,
-        },
-      }));
-    await prisma.testimonial.update({
-      where: { id: row.id },
-      data: { imageUrl: item.imageUrl, isPublished: true },
-    });
-    await prisma.testimonialTranslation.upsert({
-      where: { testimonialId_locale: { testimonialId: row.id, locale: 'en' } },
-      update: item.en,
-      create: { testimonialId: row.id, locale: 'en', ...item.en },
-    });
-  }
-
-  const graduateSeeds = [
-    {
-      fullName: 'د. لينا حسن',
-      courseTitle: 'ماستر كلاس الجراحة الموجّهة لزراعة الأسنان',
-      description: 'أنهت البرنامج بتميّز في تخطيط الأدلة الجراحية.',
-      imageUrl: '/dentacollab-hero.png',
-      certificateUrl: '/dentacollab-hero.png',
-      en: {
-        fullName: 'Dr. Lina Hassan',
-        courseTitle: 'Guided Implant Surgery Masterclass',
-        description: 'Completed the program with excellence in surgical guide planning.',
-      },
-    },
-    {
-      fullName: 'د. يوسف راضي',
-      courseTitle: 'ماستر كلاس الجراحة الموجّهة لزراعة الأسنان',
-      description: 'تطبيق عملي قوي على حالات All-on-4.',
-      imageUrl: '/dentacollab-hero.png',
-      certificateUrl: '/dentacollab-hero.png',
-      en: {
-        fullName: 'Dr. Yousef Radhi',
-        courseTitle: 'Guided Implant Surgery Masterclass',
-        description: 'Strong practical application on All-on-4 cases.',
-      },
-    },
-  ];
-  for (const item of graduateSeeds) {
-    const existing = await prisma.graduate.findFirst({ where: { fullName: item.fullName } });
-    const row =
-      existing ??
-      (await prisma.graduate.create({
-        data: {
-          fullName: item.fullName,
-          courseTitle: item.courseTitle,
-          description: item.description,
-          imageUrl: item.imageUrl,
-          certificateUrl: item.certificateUrl,
-          courseId: course.id,
-          graduationDate: new Date('2026-05-15'),
-          isPublished: true,
-        },
-      }));
-    await prisma.graduate.update({
-      where: { id: row.id },
-      data: {
-        imageUrl: item.imageUrl,
-        certificateUrl: item.certificateUrl,
-        courseId: course.id,
-        isPublished: true,
-      },
-    });
-    await prisma.graduateTranslation.upsert({
-      where: { graduateId_locale: { graduateId: row.id, locale: 'en' } },
-      update: item.en,
-      create: { graduateId: row.id, locale: 'en', ...item.en },
-    });
-  }
+  // Graduates + testimonials are seeded via seedGraduatesAndTestimonials()
 
   const albumExisting = await prisma.galleryAlbum.findFirst({
     where: { title: 'ورش العمل السريرية' },
