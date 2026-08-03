@@ -888,14 +888,14 @@ async function main() {
     create: {
       key: 'chatbot',
       value: {
-        welcomeAr: 'مرحباً بك في DentaCollab. كيف أقدر أساعدك بخصوص الدورات أو التسجيل؟',
-        welcomeEn: 'Welcome to DentaCollab. How can I help with courses or registration?',
+        welcomeAr: 'مرحباً بك في DentaCollab. اسألني عن الدورات، الورش، التسجيل، الدفع، أو الفواتير.',
+        welcomeEn: 'Welcome to DentaCollab. Ask me about courses, workshops, registration, payments, or invoices.',
         goodbyeAr: 'شكراً لتواصلك معنا. نتمنى لك يوماً سعيداً!',
         goodbyeEn: 'Thanks for chatting with us. Have a great day!',
         outOfScopeAr:
-          'عذراً، هذا السؤال خارج نطاق الأسئلة المتوفرة. يمكنك التواصل مع الدعم عبر واتساب.',
+          'عذراً، ما عندي جواب جاهز لهذا السؤال. لأمور الدفع أو الفواتير أو أي استفسار آخر، تواصل مع الدعم عبر واتساب وسنساعدك.',
         outOfScopeEn:
-          'Sorry, that question is outside our FAQ. You can reach support on WhatsApp.',
+          'Sorry, I do not have a ready answer for that. For payments, invoices, or anything else, reach support on WhatsApp and we will help.',
       },
     },
   });
@@ -928,6 +928,9 @@ async function main() {
       ],
     });
   }
+
+  const { seedPaymentChatbotQas } = await import('./seed-chatbot-payments');
+  await seedPaymentChatbotQas(prisma);
 
   await prisma.knowledgeCategory.create({
     data: {

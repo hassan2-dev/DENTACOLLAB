@@ -20,7 +20,8 @@ Required production values:
 
 - Strong `JWT_ACCESS_SECRET`
 - Production `DATABASE_URL` / Postgres credentials
-- `CORS_ORIGINS` with your public domains
+- `CORS_ORIGINS` with your public domains, e.g. `https://dentacollab.org,https://www.dentacollab.org,https://admin.dentacollab.org`
+- `WEB_PUBLIC_URL` with the public website origin (e.g. `https://dentacollab.org`) — used for Stripe redirects and invoice QR codes. Do **not** leave this as `http://localhost:5173` in production.
 - `R2_*` for media storage
 - WhatsApp number in settings (`general.whatsapp`) for chatbot handoff
 

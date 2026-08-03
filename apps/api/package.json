@@ -12,6 +12,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
+    "prisma:seed:payments-chat": "ts-node --transpile-only prisma/seed-chatbot-payments.ts",
     "prisma:studio": "prisma studio"
   },
   "dependencies": {

@@ -48,14 +48,14 @@ export type ChatBotSettingsValue = {
 };
 
 export const DEFAULT_CHATBOT_SETTINGS: ChatBotSettingsValue = {
-  welcomeAr: 'مرحباً بك في DentaCollab. اسألني عن الدورات، الورش، أو المدربين.',
-  welcomeEn: 'Welcome to DentaCollab. Ask me about courses, workshops, or instructors.',
+  welcomeAr: 'مرحباً بك في DentaCollab. اسألني عن الدورات، الورش، التسجيل، الدفع، أو الفواتير.',
+  welcomeEn: 'Welcome to DentaCollab. Ask me about courses, workshops, registration, payments, or invoices.',
   goodbyeAr: 'شكراً لتواصلك معنا. نتمنى لك يوماً سعيداً!',
   goodbyeEn: 'Thanks for chatting with us. Have a great day!',
   outOfScopeAr:
-    'عذراً، هذا السؤال خارج نطاق الأسئلة المتوفرة. يمكنك التواصل مع الدعم عبر واتساب.',
+    'عذراً، ما عندي جواب جاهز لهذا السؤال. لأمور الدفع أو الفواتير أو أي استفسار آخر، تواصل مع الدعم عبر واتساب وسنساعدك.',
   outOfScopeEn:
-    'Sorry, that question is outside our FAQ. You can reach support on WhatsApp.',
+    'Sorry, I do not have a ready answer for that. For payments, invoices, or anything else, reach support on WhatsApp and we will help.',
 };
 
 const MATCH_THRESHOLD = 0.42;
@@ -603,6 +603,35 @@ function scoreMatch(query: string, candidate: string) {
   return Math.max(jaccard, coverage * 0.85);
 }
 
+/** Boost FAQ matching for payment / invoice wording users often use. */
+function paymentTopicBoost(message: string, question: string) {
+  const msg = normalizeText(message);
+  const q = normalizeText(question);
+  const paymentHints = [
+    'دفع',
+    'دفعت',
+    'فاتوره',
+    'فاتورة',
+    'invoice',
+    'payment',
+    'stripe',
+    'ايميل',
+    'إيميل',
+    'email',
+    'qr',
+    'كيو ار',
+    'تحميل',
+    'download',
+    'مسجلتش',
+    'انسجلت',
+    'تسجيل',
+  ];
+  const msgHits = paymentHints.filter((h) => msg.includes(normalizeText(h))).length;
+  const qHits = paymentHints.filter((h) => q.includes(normalizeText(h))).length;
+  if (msgHits === 0 || qHits === 0) return 0;
+  return Math.min(0.28, 0.1 + msgHits * 0.04 + qHits * 0.03);
+}
+
 const GREETING_EXACT = new Set([
   'hi',
   'hello',
@@ -1089,7 +1118,9 @@ export class ChatBotService {
       const primaryQ = locale === 'en' ? item.questionEn : item.questionAr;
       const fallbackQ = locale === 'en' ? item.questionAr : item.questionEn;
       const primaryA = locale === 'en' ? item.answerEn : item.answerAr;
-      const score = Math.max(scoreMatch(message, primaryQ), scoreMatch(message, fallbackQ) * 0.9);
+      const score =
+        Math.max(scoreMatch(message, primaryQ), scoreMatch(message, fallbackQ) * 0.9) +
+        paymentTopicBoost(message, `${item.questionAr} ${item.questionEn} ${item.answerAr}`);
       if (!best || score > best.score) best = { score, answer: primaryA };
     }
 
