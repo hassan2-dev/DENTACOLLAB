@@ -91,4 +91,21 @@ export class StripeService {
     if (!this.client) throw new Error('Stripe is not configured');
     return this.client.checkout.sessions.retrieve(sessionId);
   }
+
+  async refundPayment(input: {
+    paymentIntentId: string;
+    amount?: number;
+    currency?: string;
+    reason?: string;
+  }) {
+    if (!this.client) throw new Error('Stripe is not configured');
+    const payload: Stripe.RefundCreateParams = {
+      payment_intent: input.paymentIntentId,
+      reason: (input.reason as Stripe.RefundCreateParams.Reason) || 'requested_by_customer',
+    };
+    if (input.amount != null && input.currency) {
+      payload.amount = this.toStripeUnitAmount(input.amount, input.currency);
+    }
+    return this.client.refunds.create(payload);
+  }
 }

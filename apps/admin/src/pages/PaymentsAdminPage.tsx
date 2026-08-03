@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input, Select } from '@dentacollab/ui';
 import { API_URL, api, getToken } from '../lib/api';
 import { useAdminPreferences } from '../components/AdminLayout';
@@ -12,7 +12,10 @@ type Payment = {
   phone: string;
   email: string;
   invoiceNumber: string;
+  registrationNumber?: string | null;
   amount: number;
+  discountAmount?: number | null;
+  couponCode?: string | null;
   currency: string;
   paymentStatus: string;
   provider: string;
@@ -25,6 +28,29 @@ type Payment = {
   registration?: { id: string; status: string } | null;
 };
 
+type TimelineStep = {
+  key: string;
+  label: string;
+  at?: string | Date | null;
+  done: boolean;
+};
+
+type PaymentLog = {
+  id?: string;
+  event: string;
+  status: string;
+  createdAt: string;
+  payload?: unknown;
+};
+
+type PaymentDetail = Payment & {
+  timeline?: {
+    steps: TimelineStep[];
+    logs?: PaymentLog[];
+  };
+  logs?: PaymentLog[];
+};
+
 const STATUSES = ['PENDING', 'PAID', 'FAILED', 'CANCELLED', 'REFUNDED'] as const;
 
 const STATUS_LABELS: Record<(typeof STATUSES)[number], { ar: string; en: string }> = {
@@ -35,17 +61,32 @@ const STATUS_LABELS: Record<(typeof STATUSES)[number], { ar: string; en: string 
   REFUNDED: { ar: 'مسترد', en: 'Refunded' },
 };
 
+const STEP_LABELS: Record<string, { ar: string; en: string }> = {
+  CREATED: { ar: 'تم الإنشاء', en: 'Created' },
+  WAITING_PAYMENT: { ar: 'بانتظار الدفع', en: 'Waiting Payment' },
+  PAID: { ar: 'مدفوع', en: 'Paid' },
+  INVOICE_GENERATED: { ar: 'تم إنشاء الفاتورة', en: 'Invoice Generated' },
+  EMAIL_SENT: { ar: 'تم إرسال البريد', en: 'Email Sent' },
+  REFUNDED: { ar: 'مسترد', en: 'Refunded' },
+};
+
 function formatMoney(amount: number, currency: string, ar: boolean) {
   const formatted = amount.toLocaleString(ar ? 'ar-IQ' : 'en-US');
   return `${formatted} ${currency}`;
 }
 
+function formatDate(value?: string | Date | null, ar?: boolean) {
+  if (!value) return '—';
+  return new Date(value).toLocaleString(ar ? 'ar-IQ' : 'en-US');
+}
+
 export function PaymentsAdminPage() {
   const { language } = useAdminPreferences();
   const ar = language === 'ar';
+  const qc = useQueryClient();
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
-  const [selected, setSelected] = useState<Payment | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const query = useQuery({
     queryKey: ['admin-payments', q, status],
@@ -58,7 +99,28 @@ export function PaymentsAdminPage() {
     },
   });
 
+  const detailQuery = useQuery({
+    queryKey: ['admin-payment', selectedId],
+    queryFn: () => api<PaymentDetail>(`/payments/${selectedId}`),
+    enabled: Boolean(selectedId),
+  });
+
+  const refund = useMutation({
+    mutationFn: (id: string) => api(`/payments/${id}/refund`, { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-payments'] });
+      qc.invalidateQueries({ queryKey: ['admin-payment', selectedId] });
+      notify.success(ar ? 'تم استرداد الدفعة' : 'Payment refunded');
+    },
+    onError: (err: Error) => {
+      notify.error(err.message || (ar ? 'فشل الاسترداد' : 'Refund failed'));
+    },
+  });
+
   const rows = useMemo(() => query.data || [], [query.data]);
+  const selected = detailQuery.data;
+  const steps = selected?.timeline?.steps || [];
+  const logs = selected?.timeline?.logs || selected?.logs || [];
 
   async function exportExcel() {
     try {
@@ -82,6 +144,16 @@ export function PaymentsAdminPage() {
     } catch {
       notify.error(ar ? 'فشل التصدير' : 'Export failed');
     }
+  }
+
+  function confirmRefund() {
+    if (!selectedId || !selected) return;
+    const ok = window.confirm(
+      ar
+        ? `تأكيد استرداد دفعة ${selected.invoiceNumber}؟`
+        : `Refund payment ${selected.invoiceNumber}?`,
+    );
+    if (ok) refund.mutate(selectedId);
   }
 
   return (
@@ -174,7 +246,7 @@ export function PaymentsAdminPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => setSelected(row)}>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setSelectedId(row.id)}>
                         {ar ? 'عرض' : 'View'}
                       </Button>
                       {row.invoicePdfUrl ? (
@@ -196,60 +268,155 @@ export function PaymentsAdminPage() {
         </table>
       </div>
 
-      {selected ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setSelected(null)}>
+      {selectedId ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setSelectedId(null)}>
           <div
-            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-xl font-black">{selected.invoiceNumber}</h2>
-                <p className="mt-1 text-sm text-[var(--color-ink-muted)]">{selected.course.title}</p>
+                <h2 className="text-xl font-black">
+                  {selected?.invoiceNumber || (ar ? 'تفاصيل الدفعة' : 'Payment details')}
+                </h2>
+                <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
+                  {selected?.course.title || (detailQuery.isLoading ? (ar ? 'جاري التحميل...' : 'Loading...') : '')}
+                </p>
               </div>
-              <Button type="button" variant="ghost" onClick={() => setSelected(null)}>
+              <Button type="button" variant="ghost" onClick={() => setSelectedId(null)}>
                 ✕
               </Button>
             </div>
-            <dl className="mt-5 space-y-3 text-sm">
-              {[
-                [ar ? 'الاسم' : 'Name', selected.fullName],
-                [ar ? 'الهاتف' : 'Phone', selected.phone],
-                [ar ? 'البريد' : 'Email', selected.email],
-                [ar ? 'المبلغ' : 'Amount', formatMoney(selected.amount, selected.currency, ar)],
-                [
-                  ar ? 'الحالة' : 'Status',
-                  STATUS_LABELS[selected.paymentStatus as (typeof STATUSES)[number]]?.[ar ? 'ar' : 'en'] ||
-                    selected.paymentStatus,
-                ],
-                [ar ? 'المزوّد' : 'Provider', selected.provider],
-                ['Stripe Session', selected.stripeSessionId || '—'],
-                ['Payment Intent', selected.stripePaymentIntentId || '—'],
-                [
-                  ar ? 'تاريخ الدفع' : 'Paid at',
-                  selected.paidAt ? new Date(selected.paidAt).toLocaleString(ar ? 'ar-IQ' : 'en-US') : '—',
-                ],
-                [
-                  ar ? 'تاريخ الإنشاء' : 'Created',
-                  new Date(selected.createdAt).toLocaleString(ar ? 'ar-IQ' : 'en-US'),
-                ],
-              ].map(([label, value]) => (
-                <div key={String(label)} className="flex justify-between gap-4 border-b border-[var(--color-border)] pb-2">
-                  <dt className="text-[var(--color-ink-muted)]">{label}</dt>
-                  <dd className="max-w-[60%] text-end font-semibold break-all">{value}</dd>
+
+            {detailQuery.isLoading || !selected ? (
+              <p className="mt-8 text-center text-sm text-[var(--color-ink-muted)]">
+                {ar ? 'جاري التحميل...' : 'Loading...'}
+              </p>
+            ) : (
+              <>
+                <dl className="mt-5 space-y-3 text-sm">
+                  {[
+                    [ar ? 'الاسم' : 'Name', selected.fullName],
+                    [ar ? 'الهاتف' : 'Phone', selected.phone],
+                    [ar ? 'البريد' : 'Email', selected.email],
+                    [ar ? 'رقم التسجيل' : 'Registration #', selected.registrationNumber || '—'],
+                    [ar ? 'المبلغ' : 'Amount', formatMoney(selected.amount, selected.currency, ar)],
+                    [
+                      ar ? 'الخصم' : 'Discount',
+                      selected.discountAmount
+                        ? formatMoney(selected.discountAmount, selected.currency, ar)
+                        : '—',
+                    ],
+                    [ar ? 'كود الخصم' : 'Coupon', selected.couponCode || '—'],
+                    [
+                      ar ? 'الحالة' : 'Status',
+                      STATUS_LABELS[selected.paymentStatus as (typeof STATUSES)[number]]?.[ar ? 'ar' : 'en'] ||
+                        selected.paymentStatus,
+                    ],
+                    [ar ? 'المزوّد' : 'Provider', selected.provider],
+                    ['Stripe Session', selected.stripeSessionId || '—'],
+                    ['Payment Intent', selected.stripePaymentIntentId || '—'],
+                    [ar ? 'تاريخ الدفع' : 'Paid at', formatDate(selected.paidAt, ar)],
+                    [ar ? 'تاريخ الإنشاء' : 'Created', formatDate(selected.createdAt, ar)],
+                  ].map(([label, value]) => (
+                    <div
+                      key={String(label)}
+                      className="flex justify-between gap-4 border-b border-[var(--color-border)] pb-2"
+                    >
+                      <dt className="text-[var(--color-ink-muted)]">{label}</dt>
+                      <dd className="max-w-[60%] text-end font-semibold break-all">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+
+                <section className="mt-6">
+                  <h3 className="text-sm font-black">{ar ? 'مسار الدفع' : 'Payment Timeline'}</h3>
+                  <ol className="mt-3 space-y-2">
+                    {steps.map((step, index) => (
+                      <li
+                        key={step.key}
+                        className="flex items-start gap-3 rounded-xl border border-[var(--color-border)] px-3 py-2.5"
+                      >
+                        <span
+                          className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-[0.65rem] font-black ${
+                            step.done
+                              ? 'bg-[var(--color-brand)] text-white'
+                              : 'bg-[var(--color-surface)] text-[var(--color-ink-muted)]'
+                          }`}
+                        >
+                          {index + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold">
+                            {STEP_LABELS[step.key]?.[ar ? 'ar' : 'en'] || step.label}
+                          </p>
+                          <p className="text-xs text-[var(--color-ink-muted)]">
+                            {step.done ? formatDate(step.at, ar) : ar ? 'لم يكتمل بعد' : 'Pending'}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                    {!steps.length ? (
+                      <p className="text-sm text-[var(--color-ink-muted)]">
+                        {ar ? 'لا يوجد مسار بعد' : 'No timeline yet'}
+                      </p>
+                    ) : null}
+                  </ol>
+                </section>
+
+                {logs.length ? (
+                  <section className="mt-6">
+                    <h3 className="text-sm font-black">{ar ? 'سجل الأحداث' : 'Payment logs'}</h3>
+                    <ul className="mt-3 space-y-2">
+                      {logs.map((log, index) => (
+                        <li
+                          key={log.id || `${log.event}-${log.createdAt}-${index}`}
+                          className="rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <strong>{log.event}</strong>
+                            <span className="text-xs text-[var(--color-ink-muted)]">
+                              {formatDate(log.createdAt, ar)}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-[var(--color-ink-muted)]">{log.status}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {selected.invoicePdfUrl ? (
+                    <a
+                      href={selected.invoicePdfUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex flex-1 items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-bold text-white"
+                    >
+                      {ar ? 'تحميل الفاتورة' : 'Download Invoice'}
+                    </a>
+                  ) : null}
+                  {selected.paymentStatus === 'PAID' ? (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      className="flex-1 rounded-full"
+                      disabled={refund.isPending}
+                      onClick={confirmRefund}
+                    >
+                      {refund.isPending
+                        ? ar
+                          ? 'جاري الاسترداد...'
+                          : 'Refunding...'
+                        : ar
+                          ? 'استرداد الدفعة'
+                          : 'Refund Payment'}
+                    </Button>
+                  ) : null}
                 </div>
-              ))}
-            </dl>
-            {selected.invoicePdfUrl ? (
-              <a
-                href={selected.invoicePdfUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-[var(--color-brand)] px-4 py-3 text-sm font-bold text-white"
-              >
-                {ar ? 'تحميل الفاتورة' : 'Download Invoice'}
-              </a>
-            ) : null}
+              </>
+            )}
           </div>
         </div>
       ) : null}

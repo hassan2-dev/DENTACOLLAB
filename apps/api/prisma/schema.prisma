@@ -47,6 +47,20 @@ enum PaymentProvider {
   PAYPAL
   APPLE_PAY
   GOOGLE_PAY
+  ZAIN_CASH
+  QI_CARD
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum FunnelEventType {
+  VISIT
+  REGISTER_CLICK
+  CHECKOUT_STARTED
+  PAID
 }
 
 enum MediaType {
@@ -148,6 +162,10 @@ model Course {
   registrationStartsAt DateTime?
   registrationEndsAt   DateTime?
   registrationClosedManually Boolean @default(false)
+  requiresPayment      Boolean       @default(true)
+  allowRegistration    Boolean       @default(true)
+  closeRegistrationAutomatically Boolean @default(true)
+  couponsEnabled       Boolean       @default(false)
   status               PublishStatus @default(DRAFT)
   sortOrder            Int           @default(0)
   createdAt     DateTime             @default(now())
@@ -160,6 +178,8 @@ model Course {
   graduates     Graduate[]
   translations  CourseTranslation[]
   payments      Payment[]
+  coupons       CourseCoupon[]
+  funnelEvents  CourseFunnelEvent[]
 }
 
 enum FormFieldType {
@@ -284,16 +304,27 @@ model Payment {
   provider               PaymentProvider    @default(STRIPE)
   stripeSessionId        String?            @unique
   stripePaymentIntentId  String?
+  stripeRefundId         String?
   invoiceNumber          String             @unique
+  registrationNumber     String?            @unique
   amount                 Int
+  originalAmount         Int?
+  discountAmount         Int                @default(0)
   currency               String             @default("USD")
   paymentStatus          PaymentStatus      @default(PENDING)
+  couponId               String?
+  coupon                 CourseCoupon?      @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  couponCode             String?
   invoicePdfUrl          String?
   invoicePdfKey          String?
   paidAt                 DateTime?
+  refundedAt             DateTime?
+  invoiceGeneratedAt     DateTime?
+  emailSentAt            DateTime?
   metadata               Json?
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
+  logs                   PaymentLog[]
 
   @@index([email])
   @@index([phone])
@@ -302,6 +333,67 @@ model Payment {
   @@index([paymentStatus])
   @@index([createdAt])
   @@index([courseId])
+  @@index([registrationNumber])
+}
+
+model PaymentLog {
+  id        String   @id @default(cuid())
+  paymentId String
+  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  status    String
+  event     String
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  @@index([paymentId, createdAt])
+  @@index([event])
+}
+
+model CourseCoupon {
+  id            String       @id @default(cuid())
+  courseId      String
+  course        Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  code          String
+  discountType  DiscountType
+  discountValue Int
+  expiresAt     DateTime?
+  usageLimit    Int?
+  usedCount     Int          @default(0)
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  payments      Payment[]
+
+  @@unique([courseId, code])
+  @@index([courseId, isActive])
+}
+
+model CourseFunnelEvent {
+  id        String          @id @default(cuid())
+  courseId  String
+  course    Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  event     FunnelEventType
+  sessionId String?
+  meta      Json?
+  createdAt DateTime        @default(now())
+
+  @@index([courseId, event, createdAt])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  userName  String
+  action    String
+  entity    String
+  entityId  String?
+  details   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entity, entityId])
+  @@index([userId])
 }
 
 model GalleryAlbum {

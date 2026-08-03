@@ -128,6 +128,29 @@ const groups: Array<{
       },
     ],
   },
+  {
+    id: 'system',
+    ar: 'النظام',
+    en: 'System',
+    links: [
+      {
+        to: '/settings',
+        ar: 'الإعدادات',
+        en: 'Settings',
+        hintAr: 'الشركة والمدفوعات',
+        hintEn: 'Company & payments',
+        icon: 'settings',
+      },
+      {
+        to: '/audit-logs',
+        ar: 'سجل التدقيق',
+        en: 'Audit logs',
+        hintAr: 'إجراءات المشرفين',
+        hintEn: 'Admin actions',
+        icon: 'audit',
+      },
+    ],
+  },
 ];
 
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
@@ -197,6 +220,18 @@ function Icon({ name, size = 18 }: { name: string; size?: number }) {
         <path d="m19 15 .7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7L19 15Z" />
       </>
     ),
+    settings: (
+      <>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
+      </>
+    ),
+    audit: (
+      <>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+        <path d="M14 2v6h6M8 13h8M8 17h5" />
+      </>
+    ),
     moon: <path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z" />,
     sun: (
       <>
@@ -253,7 +288,7 @@ export function AdminLayout() {
     } catch {
       /* ignore */
     }
-    return { daily: true, academy: true, content: true };
+    return { daily: true, academy: true, content: true, system: true };
   });
 
   const activeGroupId = useMemo(() => {

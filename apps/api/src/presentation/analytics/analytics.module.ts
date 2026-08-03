@@ -142,6 +142,46 @@ export class AnalyticsService {
     }, {});
     const monthlyRevenue = monthPaidRows.reduce((sum, row) => sum + row.amount, 0);
 
+    const last30Start = new Date();
+    last30Start.setHours(0, 0, 0, 0);
+    last30Start.setDate(last30Start.getDate() - 29);
+
+    const [regs30, pays30] = await Promise.all([
+      this.prisma.courseRegistration.findMany({
+        where: { createdAt: { gte: last30Start } },
+        select: { createdAt: true },
+      }),
+      this.prisma.payment.findMany({
+        where: { createdAt: { gte: last30Start } },
+        select: { createdAt: true, amount: true, paymentStatus: true, paidAt: true },
+      }),
+    ]);
+
+    const dayKeys: string[] = [];
+    for (let i = 29; i >= 0; i -= 1) {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - i);
+      dayKeys.push(d.toISOString().slice(0, 10));
+    }
+    const dayLabel = (key: string) => key.slice(5);
+
+    const regByDay = new Map<string, number>();
+    for (const row of regs30) {
+      const key = row.createdAt.toISOString().slice(0, 10);
+      regByDay.set(key, (regByDay.get(key) || 0) + 1);
+    }
+    const payByDay = new Map<string, number>();
+    const revenueByDay = new Map<string, number>();
+    for (const row of pays30) {
+      const createdKey = row.createdAt.toISOString().slice(0, 10);
+      payByDay.set(createdKey, (payByDay.get(createdKey) || 0) + 1);
+      if (row.paymentStatus === 'PAID' && row.paidAt) {
+        const paidKey = row.paidAt.toISOString().slice(0, 10);
+        revenueByDay.set(paidKey, (revenueByDay.get(paidKey) || 0) + row.amount);
+      }
+    }
+
     return {
       cards: {
         courses,
@@ -171,6 +211,23 @@ export class AnalyticsService {
           month,
           count: monthCounts.get(month) || 0,
         })),
+        last30Days: {
+          registrations: dayKeys.map((day) => ({
+            day,
+            label: dayLabel(day),
+            count: regByDay.get(day) || 0,
+          })),
+          payments: dayKeys.map((day) => ({
+            day,
+            label: dayLabel(day),
+            count: payByDay.get(day) || 0,
+          })),
+          revenue: dayKeys.map((day) => ({
+            day,
+            label: dayLabel(day),
+            amount: revenueByDay.get(day) || 0,
+          })),
+        },
       },
       recentPayments,
       latestRegistrations,

@@ -1,7 +1,7 @@
 import { Helmet } from 'react-helmet-async';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useLocale } from '../lib/locale';
 import { courseCover } from '../lib/media';
@@ -30,6 +30,8 @@ type Course = {
   registrationLabel?: string;
   registrationCta?: string;
   registrationOpen?: boolean;
+  requiresPayment?: boolean;
+  couponsEnabled?: boolean;
   gallery: { url: string; alt?: string }[];
   curriculum: {
     title: string;
@@ -82,7 +84,17 @@ export function CourseDetailsPage() {
     queryFn: () => api<Course>(`/courses/${slug}`),
   });
 
+  useEffect(() => {
+    if (!slug) return;
+    void api('/payments/track', {
+      method: 'POST',
+      body: JSON.stringify({ courseIdOrSlug: slug, event: 'VISIT' }),
+    }).catch(() => undefined);
+  }, [slug]);
+
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [couponCode, setCouponCode] = useState('');
+  const [couponMsg, setCouponMsg] = useState<string | null>(null);
   const faq = useQuery({
     queryKey: ['faq', locale],
     queryFn: () => api<Faq[]>('/faq'),
@@ -90,7 +102,10 @@ export function CourseDetailsPage() {
   const mutation = useMutation({
     mutationFn: async () => {
       const courseData = course!;
-      const paid = courseData.price != null && courseData.price > 0;
+      const paid =
+        (courseData.requiresPayment !== false) &&
+        courseData.price != null &&
+        courseData.price > 0;
       if (paid) {
         const session = await api<{ checkoutUrl: string; paymentId: string }>(
           '/payments/create-session',
@@ -99,6 +114,7 @@ export function CourseDetailsPage() {
             body: JSON.stringify({
               courseIdOrSlug: slug,
               answers,
+              couponCode: couponCode.trim() || undefined,
               locale,
             }),
           },
@@ -115,7 +131,29 @@ export function CourseDetailsPage() {
     onSuccess: (result) => {
       if (result && typeof result === 'object' && 'checkoutUrl' in result) return;
       setAnswers({});
+      setCouponCode('');
     },
+  });
+
+  const applyCoupon = useMutation({
+    mutationFn: () =>
+      api<{
+        valid: boolean;
+        amount: number;
+        discountAmount: number;
+        currency: string;
+      }>('/payments/validate-coupon', {
+        method: 'POST',
+        body: JSON.stringify({ courseIdOrSlug: slug, code: couponCode }),
+      }),
+    onSuccess: (data) => {
+      setCouponMsg(
+        isAr
+          ? `تم تطبيق الخصم: ${data.discountAmount} — المبلغ ${data.amount} ${data.currency}`
+          : `Discount applied: ${data.discountAmount} — total ${data.amount} ${data.currency}`,
+      );
+    },
+    onError: (err: Error) => setCouponMsg(err.message),
   });
 
   if (isLoading) {
@@ -125,7 +163,8 @@ export function CourseDetailsPage() {
     return <p className="dc-container py-12">{isAr ? 'لم يتم العثور على الدورة' : 'Course not found'}</p>;
   }
 
-  const isPaidCourse = course.price != null && course.price > 0;
+  const isPaidCourse =
+    course.requiresPayment !== false && course.price != null && course.price > 0;
   const registrationOpen = course.registrationOpen !== false;
   const lessonCount = course.curriculum.reduce((total, module) => total + module.lessons.length, 0);
   const copy = isAr
@@ -577,9 +616,47 @@ export function CourseDetailsPage() {
                   onChange={setAnswers}
                   className={`${fieldClass} text-start`}
                 />
+                {isPaidCourse && course.couponsEnabled ? (
+                  <div className="sm:col-span-2">
+                    <label className="mb-2 block text-xs font-bold text-slate-500">
+                      {isAr ? 'كود الخصم (اختياري)' : 'Coupon code (optional)'}
+                    </label>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        value={couponCode}
+                        onChange={(e) => {
+                          setCouponCode(e.target.value.toUpperCase());
+                          setCouponMsg(null);
+                        }}
+                        className={fieldClass}
+                        placeholder={isAr ? 'مثال: DENTA10' : 'e.g. DENTA10'}
+                      />
+                      <button
+                        type="button"
+                        disabled={!couponCode.trim() || applyCoupon.isPending}
+                        onClick={() => applyCoupon.mutate()}
+                        className="rounded-full border border-[#1fb6d1] px-5 py-3 text-sm font-bold text-[#1fb6d1] disabled:opacity-50"
+                      >
+                        {isAr ? 'تطبيق' : 'Apply'}
+                      </button>
+                    </div>
+                    {couponMsg ? (
+                      <p className="mt-2 text-xs font-semibold text-[#0f8aa3]">{couponMsg}</p>
+                    ) : null}
+                  </div>
+                ) : null}
                 <button
                   type="submit"
                   disabled={mutation.isPending}
+                  onClick={() => {
+                    void api('/payments/track', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        courseIdOrSlug: slug,
+                        event: 'REGISTER_CLICK',
+                      }),
+                    }).catch(() => undefined);
+                  }}
                   className="rounded-full bg-gradient-to-r from-[#101c38] to-[#1fb6d1] px-6 py-3.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-60 sm:col-span-2"
                 >
                   {mutation.isPending

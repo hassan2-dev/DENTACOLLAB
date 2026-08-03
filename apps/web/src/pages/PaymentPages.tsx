@@ -1,6 +1,6 @@
 import { Helmet } from 'react-helmet-async';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useLocale } from '../lib/locale';
 import { LogoLoader } from '../components/LogoLoader';
@@ -9,6 +9,7 @@ type PaymentView = {
   id: string;
   fullName: string;
   invoiceNumber: string;
+  registrationNumber?: string | null;
   amount: number;
   currency: string;
   paymentStatus: string;
@@ -53,11 +54,7 @@ export function PaymentSuccessPage() {
     return (
       <LogoLoader
         fullPage
-        label={
-          isAr
-            ? 'جاري تأكيد الدفع...'
-            : 'Confirming your payment...'
-        }
+        label={isAr ? 'جاري تأكيد الدفع...' : 'Confirming your payment...'}
       />
     );
   }
@@ -80,28 +77,34 @@ export function PaymentSuccessPage() {
   }
 
   if (data.paymentStatus === 'FAILED') {
-    return <Navigate to="/payments/failed" replace />;
+    return <Navigate to={`/payments/failed?payment_id=${data.id}&course=${data.course.slug}`} replace />;
   }
 
   const copy = isAr
     ? {
         title: 'تم الدفع بنجاح',
-        subtitle: 'شكراً لك — تم تأكيد تسجيلك في الدورة',
+        subtitle: 'إيصال التسجيل والدفع',
         student: 'اسم الطالب',
         course: 'الدورة',
         invoice: 'رقم الفاتورة',
+        registration: 'رقم التسجيل',
+        status: 'حالة الدفع',
         amount: 'المبلغ',
         download: 'تحميل الفاتورة',
+        print: 'طباعة الفاتورة',
         home: 'العودة للرئيسية',
       }
     : {
         title: 'Payment Successful',
-        subtitle: 'Thank you — your course registration is confirmed',
+        subtitle: 'Registration & payment receipt',
         student: 'Student name',
         course: 'Course',
         invoice: 'Invoice number',
+        registration: 'Registration number',
+        status: 'Payment status',
         amount: 'Amount',
         download: 'Download Invoice',
+        print: 'Print Invoice',
         home: 'Back To Home',
       };
 
@@ -119,36 +122,43 @@ export function PaymentSuccessPage() {
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{copy.subtitle}</p>
 
           <dl className="mt-8 space-y-3 text-start text-sm">
-            <div className="flex items-center justify-between gap-4 rounded-2xl bg-[#f8fafc] px-4 py-3 dark:bg-[#0b1a2e]">
-              <dt className="text-slate-500">{copy.student}</dt>
-              <dd className="font-bold text-[#101c38] dark:text-white">{data.fullName}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4 rounded-2xl bg-[#f8fafc] px-4 py-3 dark:bg-[#0b1a2e]">
-              <dt className="text-slate-500">{copy.course}</dt>
-              <dd className="font-bold text-[#101c38] dark:text-white">{data.course.title}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4 rounded-2xl bg-[#f8fafc] px-4 py-3 dark:bg-[#0b1a2e]">
-              <dt className="text-slate-500">{copy.invoice}</dt>
-              <dd className="font-bold text-[#101c38] dark:text-white">{data.invoiceNumber}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4 rounded-2xl bg-[#f8fafc] px-4 py-3 dark:bg-[#0b1a2e]">
-              <dt className="text-slate-500">{copy.amount}</dt>
-              <dd className="font-bold text-[#1fb6d1]">
-                {formatMoney(data.amount, data.currency, isAr)}
-              </dd>
-            </div>
+            {[
+              [copy.student, data.fullName],
+              [copy.course, data.course.title],
+              [copy.registration, data.registrationNumber || '—'],
+              [copy.invoice, data.invoiceNumber],
+              [copy.status, data.paymentStatus],
+              [copy.amount, formatMoney(data.amount, data.currency, isAr)],
+            ].map(([label, value]) => (
+              <div
+                key={String(label)}
+                className="flex items-center justify-between gap-4 rounded-2xl bg-[#f8fafc] px-4 py-3 dark:bg-[#0b1a2e]"
+              >
+                <dt className="text-slate-500">{label}</dt>
+                <dd className="font-bold text-[#101c38] dark:text-white">{value}</dd>
+              </div>
+            ))}
           </dl>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
             {data.invoicePdfUrl ? (
-              <a
-                href={data.invoicePdfUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#101c38] to-[#1fb6d1] px-6 py-3.5 text-sm font-bold text-white"
-              >
-                {copy.download}
-              </a>
+              <>
+                <a
+                  href={data.invoicePdfUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#101c38] to-[#1fb6d1] px-6 py-3.5 text-sm font-bold text-white"
+                >
+                  {copy.download}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => window.open(data.invoicePdfUrl!, '_blank')}
+                  className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-3.5 text-sm font-bold text-[#101c38] dark:border-[#19314f] dark:bg-transparent dark:text-white"
+                >
+                  {copy.print}
+                </button>
+              </>
             ) : null}
             <Link
               to="/"
@@ -166,6 +176,23 @@ export function PaymentSuccessPage() {
 export function PaymentFailedPage() {
   const { locale } = useLocale();
   const isAr = locale === 'ar';
+  const [params] = useSearchParams();
+  const paymentId = params.get('payment_id') || '';
+  const courseSlug = params.get('course') || '';
+
+  const retry = useMutation({
+    mutationFn: async () => {
+      if (!paymentId) throw new Error('Missing payment');
+      const result = await api<{ checkoutUrl: string }>(`/payments/${paymentId}/retry`, {
+        method: 'POST',
+        body: '{}',
+      });
+      if (!result.checkoutUrl) throw new Error('No checkout URL');
+      window.location.href = result.checkoutUrl;
+      return result;
+    },
+  });
+
   return (
     <div className="dc-container py-20">
       <Helmet>
@@ -180,15 +207,37 @@ export function PaymentFailedPage() {
         </h1>
         <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
           {isAr
-            ? 'لم تكتمل عملية الدفع. يمكنك المحاولة مرة أخرى.'
-            : 'The payment could not be completed. You can try again.'}
+            ? 'لم تكتمل عملية الدفع. يمكنك المحاولة مرة أخرى بنفس الطلب.'
+            : 'The payment could not be completed. You can try again with the same request.'}
         </p>
-        <Link
-          to="/courses"
-          className="mt-8 inline-flex rounded-full bg-[#1fb6d1] px-6 py-3.5 text-sm font-bold text-white"
-        >
-          {isAr ? 'حاول مرة أخرى' : 'Try Again'}
-        </Link>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          {paymentId ? (
+            <button
+              type="button"
+              disabled={retry.isPending}
+              onClick={() => retry.mutate()}
+              className="inline-flex rounded-full bg-[#1fb6d1] px-6 py-3.5 text-sm font-bold text-white disabled:opacity-60"
+            >
+              {retry.isPending
+                ? isAr
+                  ? 'جاري التحويل...'
+                  : 'Redirecting...'
+                : isAr
+                  ? 'ادفع مرة أخرى'
+                  : 'Pay Again'}
+            </button>
+          ) : (
+            <Link
+              to={courseSlug ? `/courses/${courseSlug}` : '/courses'}
+              className="inline-flex rounded-full bg-[#1fb6d1] px-6 py-3.5 text-sm font-bold text-white"
+            >
+              {isAr ? 'حاول مرة أخرى' : 'Try Again'}
+            </Link>
+          )}
+        </div>
+        {retry.isError ? (
+          <p className="mt-4 text-sm text-red-600">{(retry.error as Error).message}</p>
+        ) : null}
       </div>
     </div>
   );
@@ -203,10 +252,22 @@ export function PaymentCancelPage() {
 
   useQuery({
     queryKey: ['cancel-payment', paymentId],
-    queryFn: () =>
-      api(`/payments/${paymentId}/cancel`, { method: 'POST', body: '{}' }),
+    queryFn: () => api(`/payments/${paymentId}/cancel`, { method: 'POST', body: '{}' }),
     enabled: Boolean(paymentId),
     retry: false,
+  });
+
+  const retry = useMutation({
+    mutationFn: async () => {
+      if (!paymentId) throw new Error('Missing payment');
+      const result = await api<{ checkoutUrl: string }>(`/payments/${paymentId}/retry`, {
+        method: 'POST',
+        body: '{}',
+      });
+      if (!result.checkoutUrl) throw new Error('No checkout URL');
+      window.location.href = result.checkoutUrl;
+      return result;
+    },
   });
 
   return (
@@ -223,14 +284,24 @@ export function PaymentCancelPage() {
         </h1>
         <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
           {isAr
-            ? 'ألغيت عملية الدفع. يمكنك الرجوع للدورة والمحاولة لاحقاً.'
-            : 'You cancelled the payment. You can return to the course and try later.'}
+            ? 'ألغيت عملية الدفع. يمكنك الدفع مرة أخرى أو الرجوع للدورة.'
+            : 'You cancelled the payment. You can pay again or return to the course.'}
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          {paymentId ? (
+            <button
+              type="button"
+              disabled={retry.isPending}
+              onClick={() => retry.mutate()}
+              className="inline-flex rounded-full bg-[#1fb6d1] px-6 py-3.5 text-sm font-bold text-white disabled:opacity-60"
+            >
+              {isAr ? 'ادفع مرة أخرى' : 'Pay Again'}
+            </button>
+          ) : null}
           {courseSlug ? (
             <Link
               to={`/courses/${courseSlug}`}
-              className="inline-flex rounded-full bg-[#1fb6d1] px-6 py-3.5 text-sm font-bold text-white"
+              className="inline-flex rounded-full border border-slate-200 px-6 py-3.5 text-sm font-bold text-[#101c38] dark:border-[#19314f] dark:text-white"
             >
               {isAr ? 'العودة للدورة' : 'Back to course'}
             </Link>

@@ -13,6 +13,7 @@ import {
   InstructorsAdminPage,
 } from './pages/SimpleCrudPages';
 import {
+  AuditLogsPage,
   CalendarAdminPage,
   ChatbotAdminPage,
   ContentAdminPage,
@@ -60,6 +61,7 @@ export default function App() {
               <Route path="calendar/new" element={<CalendarAdminPage />} />
               <Route path="calendar/:id/edit" element={<CalendarAdminPage />} />
               <Route path="settings" element={<SettingsAdminPage />} />
+              <Route path="audit-logs" element={<AuditLogsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

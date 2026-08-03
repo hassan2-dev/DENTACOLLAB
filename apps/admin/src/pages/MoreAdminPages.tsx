@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Input, Textarea } from '@dentacollab/ui';
+import { Input, Select, Textarea } from '@dentacollab/ui';
 import { api } from '../lib/api';
 import { useAdminPreferences } from '../components/AdminLayout';
 import { LocalePill, PageHeader } from '../components/AdminUi';
@@ -473,8 +473,417 @@ export function ContentAdminPage() {
   return <Navigate to="/" replace />;
 }
 
+type SettingsMap = Record<string, Record<string, unknown>>;
+
+type SettingsTab =
+  | 'general'
+  | 'invoice'
+  | 'stripe'
+  | 'resend'
+  | 'r2'
+  | 'openai'
+  | 'currency';
+
+const MASK = '********';
+const SECRET_FIELDS: Record<string, Set<string>> = {
+  stripe: new Set(['secretKey', 'webhookSecret', 'publishableKey']),
+  resend: new Set(['apiKey']),
+  r2: new Set(['accessKeyId', 'secretAccessKey']),
+  openai: new Set(['apiKey']),
+};
+
+function asString(value: unknown) {
+  return typeof value === 'string' ? value : value == null ? '' : String(value);
+}
+
+function maskIfSecret(value: string, sensitive: boolean) {
+  if (!sensitive) return value;
+  if (!value || value.includes('****')) return value || '';
+  return MASK;
+}
+
+function prepareSettingsPayload(form: SettingsMap): SettingsMap {
+  const payload: SettingsMap = {};
+  for (const [group, values] of Object.entries(form)) {
+    const next: Record<string, unknown> = {};
+    const secrets = SECRET_FIELDS[group];
+    for (const [key, raw] of Object.entries(values)) {
+      if (key.endsWith('Configured')) continue;
+      const value = asString(raw);
+      if (secrets?.has(key)) {
+        if (!value.trim() || value.includes('****')) {
+          next[key] = MASK;
+        } else {
+          next[key] = value.trim();
+        }
+      } else if (group === 'currency' && key === 'taxPercent') {
+        next[key] = value.trim() === '' ? 0 : Number(value);
+      } else if (group === 'general') {
+        next[key] = value;
+        if (key === 'name') next.siteName = value;
+        if (key === 'address') next.location = value;
+      } else {
+        next[key] = value;
+      }
+    }
+    payload[group] = next;
+  }
+  return payload;
+}
+
 export function SettingsAdminPage() {
-  return <Navigate to="/" replace />;
+  const { language } = useAdminPreferences();
+  const isAr = language === 'ar';
+  const qc = useQueryClient();
+  const [tab, setTab] = useState<SettingsTab>('general');
+  const [form, setForm] = useState<SettingsMap>({
+    general: { name: '', email: '', phone: '', address: '', logoUrl: '' },
+    invoice: {
+      companyName: '',
+      tagline: '',
+      email: '',
+      phone: '',
+      address: '',
+      taxId: '',
+      prefix: 'INV',
+      logoUrl: '',
+    },
+    stripe: { secretKey: '', webhookSecret: '', publishableKey: '' },
+    resend: { apiKey: '', fromEmail: '' },
+    r2: { endpoint: '', accessKeyId: '', secretAccessKey: '', bucket: '', publicUrl: '' },
+    openai: { apiKey: '' },
+    currency: { defaultCurrency: 'IQD', taxPercent: '0' },
+  });
+
+  const query = useQuery({
+    queryKey: ['admin-settings'],
+    queryFn: () => api<SettingsMap>('/settings/admin'),
+  });
+
+  useEffect(() => {
+    if (!query.data) return;
+    const d = query.data;
+    const general = d.general || {};
+    const invoice = d.invoice || {};
+    const stripe = d.stripe || {};
+    const resend = d.resend || {};
+    const r2 = d.r2 || {};
+    const openai = d.openai || {};
+    const currency = d.currency || {};
+
+    setForm({
+      general: {
+        name: asString(general.name || general.siteName),
+        email: asString(general.email),
+        phone: asString(general.phone),
+        address: asString(general.address || general.location),
+        logoUrl: asString(general.logoUrl),
+      },
+      invoice: {
+        companyName: asString(invoice.companyName),
+        tagline: asString(invoice.tagline),
+        email: asString(invoice.email),
+        phone: asString(invoice.phone),
+        address: asString(invoice.address),
+        taxId: asString(invoice.taxId),
+        prefix: asString(invoice.prefix) || 'INV',
+        logoUrl: asString(invoice.logoUrl),
+      },
+      stripe: {
+        secretKey: maskIfSecret(asString(stripe.secretKey), true),
+        webhookSecret: maskIfSecret(asString(stripe.webhookSecret), true),
+        publishableKey: maskIfSecret(asString(stripe.publishableKey), true),
+      },
+      resend: {
+        apiKey: maskIfSecret(asString(resend.apiKey), true),
+        fromEmail: asString(resend.fromEmail),
+      },
+      r2: {
+        endpoint: asString(r2.endpoint),
+        accessKeyId: maskIfSecret(asString(r2.accessKeyId), true),
+        secretAccessKey: maskIfSecret(asString(r2.secretAccessKey), true),
+        bucket: asString(r2.bucket),
+        publicUrl: asString(r2.publicUrl),
+      },
+      openai: {
+        apiKey: maskIfSecret(asString(openai.apiKey), true),
+      },
+      currency: {
+        defaultCurrency: asString(currency.defaultCurrency) || 'IQD',
+        taxPercent: asString(currency.taxPercent ?? '0'),
+      },
+    });
+  }, [query.data]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      api('/settings', {
+        method: 'PUT',
+        body: JSON.stringify({ settings: prepareSettingsPayload(form) }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-settings'] });
+      notify.success(isAr ? 'تم حفظ الإعدادات' : 'Settings saved');
+    },
+    onError: (err: Error) => notify.error(err.message || (isAr ? 'فشل الحفظ' : 'Save failed')),
+  });
+
+  function setField(group: SettingsTab, key: string, value: string) {
+    setForm((prev) => ({
+      ...prev,
+      [group]: { ...prev[group], [key]: value },
+    }));
+  }
+
+  const tabs: Array<{ id: SettingsTab; ar: string; en: string }> = [
+    { id: 'general', ar: 'عام / الشركة', en: 'General / Company' },
+    { id: 'invoice', ar: 'الفاتورة', en: 'Invoice' },
+    { id: 'stripe', ar: 'Stripe', en: 'Stripe' },
+    { id: 'resend', ar: 'Resend', en: 'Resend' },
+    { id: 'r2', ar: 'R2', en: 'R2' },
+    { id: 'openai', ar: 'OpenAI', en: 'OpenAI' },
+    { id: 'currency', ar: 'العملة والضريبة', en: 'Currency / Tax' },
+  ];
+
+  return (
+    <div className="admin-page space-y-6">
+      <PageHeader
+        eyebrow={isAr ? 'النظام' : 'System'}
+        title={isAr ? 'الإعدادات' : 'Settings'}
+        description={
+          isAr
+            ? 'إعدادات الشركة، الفواتير، والمدفوعات. اترك الحقول السرية فارغة أو ******** لعدم استبدالها.'
+            : 'Company, invoice, and payment settings. Leave secrets blank or ******** to keep current values.'
+        }
+      />
+
+      <div className="flex flex-wrap gap-2">
+        {tabs.map((item) => (
+          <Button
+            key={item.id}
+            type="button"
+            size="sm"
+            variant={tab === item.id ? 'default' : 'outline'}
+            onClick={() => setTab(item.id)}
+          >
+            {isAr ? item.ar : item.en}
+          </Button>
+        ))}
+      </div>
+
+      {query.isLoading ? (
+        <p className="text-sm text-[var(--color-ink-muted)]">{isAr ? 'جاري التحميل...' : 'Loading...'}</p>
+      ) : (
+        <form
+          className="admin-panel admin-form-card space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            save.mutate();
+          }}
+        >
+          {tab === 'general' ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <Input id="general-name" label={isAr ? 'الاسم' : 'Name'} value={asString(form.general.name)} onChange={(e) => setField('general', 'name', e.target.value)} />
+              <Input id="general-email" label={isAr ? 'البريد' : 'Email'} value={asString(form.general.email)} onChange={(e) => setField('general', 'email', e.target.value)} />
+              <Input id="general-phone" label={isAr ? 'الهاتف' : 'Phone'} value={asString(form.general.phone)} onChange={(e) => setField('general', 'phone', e.target.value)} />
+              <Input id="general-address" label={isAr ? 'العنوان' : 'Address'} value={asString(form.general.address)} onChange={(e) => setField('general', 'address', e.target.value)} />
+              <div className="md:col-span-2">
+                <MediaImageField
+                  id="general-logo"
+                  label={isAr ? 'الشعار' : 'Logo URL'}
+                  value={asString(form.general.logoUrl)}
+                  onChange={(logoUrl) => setField('general', 'logoUrl', logoUrl)}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {tab === 'invoice' ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <Input id="invoice-company" label={isAr ? 'اسم الشركة' : 'Company name'} value={asString(form.invoice.companyName)} onChange={(e) => setField('invoice', 'companyName', e.target.value)} />
+              <Input id="invoice-tagline" label={isAr ? 'الشعار النصي' : 'Tagline'} value={asString(form.invoice.tagline)} onChange={(e) => setField('invoice', 'tagline', e.target.value)} />
+              <Input id="invoice-email" label={isAr ? 'البريد' : 'Email'} value={asString(form.invoice.email)} onChange={(e) => setField('invoice', 'email', e.target.value)} />
+              <Input id="invoice-phone" label={isAr ? 'الهاتف' : 'Phone'} value={asString(form.invoice.phone)} onChange={(e) => setField('invoice', 'phone', e.target.value)} />
+              <Input id="invoice-address" label={isAr ? 'العنوان' : 'Address'} value={asString(form.invoice.address)} onChange={(e) => setField('invoice', 'address', e.target.value)} />
+              <Input id="invoice-tax" label={isAr ? 'الرقم الضريبي' : 'Tax ID'} value={asString(form.invoice.taxId)} onChange={(e) => setField('invoice', 'taxId', e.target.value)} />
+              <Input id="invoice-prefix" label={isAr ? 'بادئة الفاتورة' : 'Invoice prefix'} value={asString(form.invoice.prefix)} onChange={(e) => setField('invoice', 'prefix', e.target.value)} />
+              <div className="md:col-span-2">
+                <MediaImageField
+                  id="invoice-logo"
+                  label={isAr ? 'شعار الفاتورة' : 'Invoice logo'}
+                  value={asString(form.invoice.logoUrl)}
+                  onChange={(logoUrl) => setField('invoice', 'logoUrl', logoUrl)}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {tab === 'stripe' ? (
+            <div className="grid gap-3 md:grid-cols-1">
+              <Input id="stripe-secret" label="Secret key" value={asString(form.stripe.secretKey)} onChange={(e) => setField('stripe', 'secretKey', e.target.value)} placeholder={MASK} />
+              <Input id="stripe-webhook" label="Webhook secret" value={asString(form.stripe.webhookSecret)} onChange={(e) => setField('stripe', 'webhookSecret', e.target.value)} placeholder={MASK} />
+              <Input id="stripe-publishable" label="Publishable key" value={asString(form.stripe.publishableKey)} onChange={(e) => setField('stripe', 'publishableKey', e.target.value)} placeholder={MASK} />
+              <p className="text-xs text-[var(--color-ink-muted)]">
+                {isAr
+                  ? 'اترك الحقل فارغاً أو ******** للإبقاء على القيمة الحالية.'
+                  : 'Leave blank or ******** to keep the current value.'}
+              </p>
+            </div>
+          ) : null}
+
+          {tab === 'resend' ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <Input id="resend-key" label="API key" value={asString(form.resend.apiKey)} onChange={(e) => setField('resend', 'apiKey', e.target.value)} placeholder={MASK} />
+              <Input id="resend-from" label="From email" value={asString(form.resend.fromEmail)} onChange={(e) => setField('resend', 'fromEmail', e.target.value)} />
+            </div>
+          ) : null}
+
+          {tab === 'r2' ? (
+            <div className="space-y-3">
+              <p className="text-xs text-[var(--color-ink-muted)]">
+                {isAr
+                  ? 'معلومات التخزين (اختيارية للحفظ من هنا).'
+                  : 'Storage info (saving from here is optional).'}
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Input id="r2-endpoint" label="Endpoint" value={asString(form.r2.endpoint)} onChange={(e) => setField('r2', 'endpoint', e.target.value)} />
+                <Input id="r2-bucket" label="Bucket" value={asString(form.r2.bucket)} onChange={(e) => setField('r2', 'bucket', e.target.value)} />
+                <Input id="r2-access" label="Access key ID" value={asString(form.r2.accessKeyId)} onChange={(e) => setField('r2', 'accessKeyId', e.target.value)} placeholder={MASK} />
+                <Input id="r2-secret" label="Secret access key" value={asString(form.r2.secretAccessKey)} onChange={(e) => setField('r2', 'secretAccessKey', e.target.value)} placeholder={MASK} />
+                <div className="md:col-span-2">
+                  <Input id="r2-public" label="Public URL" value={asString(form.r2.publicUrl)} onChange={(e) => setField('r2', 'publicUrl', e.target.value)} />
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {tab === 'openai' ? (
+            <Input id="openai-key" label="API key" value={asString(form.openai.apiKey)} onChange={(e) => setField('openai', 'apiKey', e.target.value)} placeholder={MASK} />
+          ) : null}
+
+          {tab === 'currency' ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <Select
+                id="default-currency"
+                label={isAr ? 'العملة الافتراضية' : 'Default currency'}
+                value={asString(form.currency.defaultCurrency)}
+                onChange={(e) => setField('currency', 'defaultCurrency', e.target.value)}
+              >
+                <option value="IQD">IQD</option>
+                <option value="USD">USD</option>
+              </Select>
+              <Input
+                id="tax-percent"
+                label={isAr ? 'نسبة الضريبة %' : 'Tax percent %'}
+                type="number"
+                min={0}
+                value={asString(form.currency.taxPercent)}
+                onChange={(e) => setField('currency', 'taxPercent', e.target.value)}
+              />
+            </div>
+          ) : null}
+
+          <div className="admin-form-footer">
+            <Button type="submit" disabled={save.isPending}>
+              {save.isPending ? (isAr ? 'جاري الحفظ...' : 'Saving...') : isAr ? 'حفظ الإعدادات' : 'Save settings'}
+            </Button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+type AuditLog = {
+  id: string;
+  userName: string;
+  action: string;
+  entity: string;
+  details?: string | null;
+  createdAt: string;
+};
+
+export function AuditLogsPage() {
+  const { language } = useAdminPreferences();
+  const isAr = language === 'ar';
+  const [q, setQ] = useState('');
+
+  const query = useQuery({
+    queryKey: ['admin-audit-logs', q],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (q.trim()) params.set('q', q.trim());
+      const qs = params.toString();
+      return api<AuditLog[]>(`/audit-logs${qs ? `?${qs}` : ''}`);
+    },
+  });
+
+  return (
+    <div className="admin-page space-y-6">
+      <PageHeader
+        eyebrow={isAr ? 'النظام' : 'System'}
+        title={isAr ? 'سجل التدقيق' : 'Audit logs'}
+        description={
+          isAr
+            ? 'تتبع إجراءات المشرفين على المدفوعات والإعدادات وغيرها.'
+            : 'Track admin actions on payments, settings, and more.'
+        }
+      />
+
+      <Input
+        id="audit-search"
+        label={isAr ? 'بحث' : 'Search'}
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder={isAr ? 'مستخدم / إجراء / كيان' : 'User / action / entity'}
+      />
+
+      <section className="admin-panel">
+        <div className="overflow-x-auto">
+          <table className="dc-table">
+            <thead>
+              <tr>
+                <th>{isAr ? 'المستخدم' : 'User'}</th>
+                <th>{isAr ? 'الإجراء' : 'Action'}</th>
+                <th>{isAr ? 'الكيان' : 'Entity'}</th>
+                <th>{isAr ? 'التفاصيل' : 'Details'}</th>
+                <th>{isAr ? 'التاريخ' : 'Created at'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {query.isLoading ? (
+                <tr>
+                  <td colSpan={5} className="text-sm text-[var(--color-ink-muted)]">
+                    {isAr ? 'جاري التحميل...' : 'Loading...'}
+                  </td>
+                </tr>
+              ) : (query.data || []).length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-sm text-[var(--color-ink-muted)]">
+                    {isAr ? 'لا توجد سجلات' : 'No audit logs'}
+                  </td>
+                </tr>
+              ) : (
+                (query.data || []).map((row) => (
+                  <tr key={row.id}>
+                    <td className="font-semibold">{row.userName}</td>
+                    <td>{row.action}</td>
+                    <td>{row.entity}</td>
+                    <td className="max-w-xs truncate text-xs text-[var(--color-ink-muted)]">
+                      {row.details || '—'}
+                    </td>
+                    <td className="text-xs text-[var(--color-ink-muted)]">
+                      {new Date(row.createdAt).toLocaleString(isAr ? 'ar-IQ' : 'en-US')}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
 }
 
 export function KnowledgeAdminPage() {

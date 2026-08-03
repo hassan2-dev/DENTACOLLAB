@@ -7,6 +7,7 @@ export type CourseRegistrationWindow = {
   registrationEndsAt: Date | null;
   registrationClosedManually: boolean;
   status: PublishStatus;
+  allowRegistration?: boolean;
 };
 
 export function getRegistrationWindowState(
@@ -16,7 +17,9 @@ export function getRegistrationWindowState(
   if (course.status === PublishStatus.CLOSED || course.status === PublishStatus.ARCHIVED) {
     return 'COURSE_CLOSED';
   }
-  if (course.registrationClosedManually) return 'MANUALLY_CLOSED';
+  if (course.allowRegistration === false || course.registrationClosedManually) {
+    return 'MANUALLY_CLOSED';
+  }
   if (course.registrationStartsAt && now < course.registrationStartsAt) return 'BEFORE_START';
   if (course.registrationEndsAt && now > course.registrationEndsAt) return 'EXPIRED';
   return 'OPEN';

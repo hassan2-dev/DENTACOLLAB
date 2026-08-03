@@ -127,6 +127,26 @@ export class CreateCourseDto {
   @IsBoolean()
   registrationClosedManually?: boolean;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  requiresPayment?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  allowRegistration?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  closeRegistrationAutomatically?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  couponsEnabled?: boolean;
+
   @ApiPropertyOptional({ enum: PublishStatus })
   @IsOptional()
   @IsEnum(PublishStatus)
@@ -229,6 +249,26 @@ export class UpdateCourseDto {
   @IsOptional()
   @IsBoolean()
   registrationClosedManually?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  requiresPayment?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  allowRegistration?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  closeRegistrationAutomatically?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  couponsEnabled?: boolean;
 
   @ApiPropertyOptional({ enum: PublishStatus })
   @IsOptional()

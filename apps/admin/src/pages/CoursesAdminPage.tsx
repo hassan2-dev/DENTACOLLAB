@@ -26,10 +26,15 @@ type Course = {
   currency?: string | null;
   certificate?: string;
   coverUrl?: string;
+  registrationFormUrl?: string | null;
   registrationStartsAt?: string | null;
   registrationEndsAt?: string | null;
   registrationClosedManually?: boolean;
   registrationState?: string;
+  requiresPayment?: boolean;
+  allowRegistration?: boolean;
+  closeRegistrationAutomatically?: boolean;
+  couponsEnabled?: boolean;
   translations?: Array<{
     locale: string;
     title: string;
@@ -40,6 +45,26 @@ type Course = {
     duration: string;
     certificate?: string;
   }>;
+};
+
+type Coupon = {
+  id: string;
+  code: string;
+  discountType: 'PERCENTAGE' | 'FIXED';
+  discountValue: number;
+  expiresAt?: string | null;
+  usageLimit?: number | null;
+  usedCount?: number;
+  isActive?: boolean;
+};
+
+type CourseAnalytics = {
+  visits: number;
+  registerClicks: number;
+  checkoutStarted: number;
+  paid: number;
+  conversion: number;
+  periodDays?: number;
 };
 
 const empty = {
@@ -55,8 +80,13 @@ const empty = {
   currency: 'IQD',
   certificate: '',
   coverUrl: '',
+  registrationFormUrl: '',
   registrationStartsAt: '',
   registrationEndsAt: '',
+  requiresPayment: true,
+  allowRegistration: true,
+  closeRegistrationAutomatically: true,
+  couponsEnabled: false,
   en_title: '',
   en_description: '',
   en_overview: '',
@@ -64,6 +94,14 @@ const empty = {
   en_requirements: '',
   en_duration: '',
   en_certificate: '',
+};
+
+const emptyCoupon = {
+  code: '',
+  discountType: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED',
+  discountValue: '',
+  expiresAt: '',
+  usageLimit: '',
 };
 
 function toDatetimeLocal(value?: string | null) {
@@ -97,6 +135,19 @@ export function CoursesAdminPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [formCourse, setFormCourse] = useState<Course | null>(null);
   const [formReady, setFormReady] = useState(!isEdit);
+  const [couponForm, setCouponForm] = useState(emptyCoupon);
+
+  const couponsQuery = useQuery({
+    queryKey: ['admin-course-coupons', id],
+    queryFn: () => api<Coupon[]>(`/payments/coupons/${id}`),
+    enabled: Boolean(isEdit && id),
+  });
+
+  const analyticsQuery = useQuery({
+    queryKey: ['admin-course-analytics', id],
+    queryFn: () => api<CourseAnalytics>(`/payments/analytics/course/${id}`),
+    enabled: Boolean(isEdit && id),
+  });
 
   const bilingualReady = useMemo(() => {
     const missing = missingBilingualFields(
@@ -139,8 +190,13 @@ export function CoursesAdminPage() {
         currency: form.currency.trim() || 'IQD',
         certificate: form.certificate.trim() || undefined,
         coverUrl: form.coverUrl.trim() || undefined,
+        registrationFormUrl: form.registrationFormUrl.trim() || undefined,
         registrationStartsAt: fromDatetimeLocal(form.registrationStartsAt),
         registrationEndsAt: fromDatetimeLocal(form.registrationEndsAt),
+        requiresPayment: form.requiresPayment,
+        allowRegistration: form.allowRegistration,
+        closeRegistrationAutomatically: form.closeRegistrationAutomatically,
+        couponsEnabled: form.couponsEnabled,
         translations: [
           {
             locale: 'en',
@@ -220,6 +276,40 @@ export function CoursesAdminPage() {
     onError: () => notify.error(isAr ? 'فشل الحذف' : 'Delete failed'),
   });
 
+  const createCoupon = useMutation({
+    mutationFn: () => {
+      const discountValue = Number(couponForm.discountValue);
+      if (!couponForm.code.trim() || !Number.isFinite(discountValue) || discountValue < 1) {
+        throw new Error(isAr ? 'كود الخصم والقيمة مطلوبان' : 'Coupon code and value are required');
+      }
+      return api(`/payments/coupons/${id}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          code: couponForm.code.trim().toUpperCase(),
+          discountType: couponForm.discountType,
+          discountValue,
+          expiresAt: fromDatetimeLocal(couponForm.expiresAt),
+          usageLimit: couponForm.usageLimit.trim() ? Number(couponForm.usageLimit) : null,
+        }),
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-course-coupons', id] });
+      setCouponForm(emptyCoupon);
+      notify.success(isAr ? 'تم إنشاء الكوبون' : 'Coupon created');
+    },
+    onError: (err: Error) => notify.error(err.message || (isAr ? 'فشل إنشاء الكوبون' : 'Coupon create failed')),
+  });
+
+  const deleteCoupon = useMutation({
+    mutationFn: (couponId: string) => api(`/payments/coupons/${id}/${couponId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-course-coupons', id] });
+      notify.success(isAr ? 'تم حذف الكوبون' : 'Coupon deleted');
+    },
+    onError: () => notify.error(isAr ? 'فشل حذف الكوبون' : 'Coupon delete failed'),
+  });
+
   useEffect(() => {
     if (!isEdit || !data) return;
     const c = data.find((item) => item.id === id);
@@ -243,8 +333,13 @@ export function CoursesAdminPage() {
       currency: c.currency || 'IQD',
       certificate: c.certificate || '',
       coverUrl: c.coverUrl || '',
+      registrationFormUrl: c.registrationFormUrl || '',
       registrationStartsAt: toDatetimeLocal(c.registrationStartsAt),
       registrationEndsAt: toDatetimeLocal(c.registrationEndsAt),
+      requiresPayment: c.requiresPayment !== false,
+      allowRegistration: c.allowRegistration !== false,
+      closeRegistrationAutomatically: c.closeRegistrationAutomatically !== false,
+      couponsEnabled: Boolean(c.couponsEnabled),
       en_title: en?.title || '',
       en_description: en?.description || '',
       en_overview: en?.overview || '',
@@ -350,6 +445,50 @@ export function CoursesAdminPage() {
             />
           </div>
 
+          <div className="mb-5">
+            <Input
+              id="registrationFormUrl"
+              label={isAr ? 'رابط فورم التسجيل (Google Form)' : 'Registration form URL (Google Form)'}
+              value={form.registrationFormUrl}
+              onChange={(e) => setForm({ ...form, registrationFormUrl: e.target.value })}
+              placeholder="https://forms.google.com/..."
+            />
+          </div>
+
+          <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              {
+                key: 'requiresPayment' as const,
+                label: isAr ? 'يتطلب دفع' : 'Requires payment',
+              },
+              {
+                key: 'allowRegistration' as const,
+                label: isAr ? 'السماح بالتسجيل' : 'Allow registration',
+              },
+              {
+                key: 'closeRegistrationAutomatically' as const,
+                label: isAr ? 'إغلاق التسجيل تلقائياً' : 'Close registration automatically',
+              },
+              {
+                key: 'couponsEnabled' as const,
+                label: isAr ? 'تفعيل الكوبونات' : 'Coupons enabled',
+              },
+            ].map((item) => (
+              <label
+                key={item.key}
+                className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm font-semibold"
+              >
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-[var(--color-brand)]"
+                  checked={form[item.key]}
+                  onChange={(e) => setForm({ ...form, [item.key]: e.target.checked })}
+                />
+                {item.label}
+              </label>
+            ))}
+          </div>
+
           <MediaImageField
             id="coverUrl"
             label={isAr ? 'صورة الغلاف' : 'Cover image'}
@@ -409,6 +548,182 @@ export function CoursesAdminPage() {
             </Button>
           </div>
         </form>
+
+        {isEdit && id ? (
+          <>
+            <section className="admin-panel">
+              <h2 className="text-lg font-black">{isAr ? 'تحليلات الدورة (30 يوم)' : 'Course analytics (30 days)'}</h2>
+              <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+                {isAr ? 'أداء صفحة الدورة ومسار التحويل' : 'Course page performance and conversion funnel'}
+              </p>
+              {analyticsQuery.isLoading ? (
+                <p className="mt-4 text-sm text-[var(--color-ink-muted)]">{isAr ? 'جاري التحميل...' : 'Loading...'}</p>
+              ) : (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                  {[
+                    { label: isAr ? 'الزيارات' : 'Visits', value: analyticsQuery.data?.visits ?? 0 },
+                    {
+                      label: isAr ? 'نقرات التسجيل' : 'Register clicks',
+                      value: analyticsQuery.data?.registerClicks ?? 0,
+                    },
+                    {
+                      label: isAr ? 'بدء الدفع' : 'Checkout started',
+                      value: analyticsQuery.data?.checkoutStarted ?? 0,
+                    },
+                    { label: isAr ? 'مدفوع' : 'Paid', value: analyticsQuery.data?.paid ?? 0 },
+                    {
+                      label: isAr ? 'التحويل %' : 'Conversion %',
+                      value: analyticsQuery.data?.conversion ?? 0,
+                    },
+                  ].map((metric) => (
+                    <div
+                      key={metric.label}
+                      className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3"
+                    >
+                      <p className="text-xs text-[var(--color-ink-muted)]">{metric.label}</p>
+                      <p className="mt-1 text-xl font-black">{metric.value}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="admin-panel space-y-4">
+              <div>
+                <h2 className="text-lg font-black">{isAr ? 'كوبونات الخصم' : 'Coupons'}</h2>
+                <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+                  {isAr
+                    ? 'فعّل الكوبونات أعلاه ثم أضف أكواد الخصم لهذه الدورة.'
+                    : 'Enable coupons above, then add discount codes for this course.'}
+                </p>
+              </div>
+
+              <form
+                className="grid gap-3 md:grid-cols-2 xl:grid-cols-5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  createCoupon.mutate();
+                }}
+              >
+                <Input
+                  id="coupon-code"
+                  label={isAr ? 'الكود' : 'Code'}
+                  value={couponForm.code}
+                  onChange={(e) => setCouponForm({ ...couponForm, code: e.target.value })}
+                  placeholder="SAVE20"
+                />
+                <Select
+                  id="coupon-type"
+                  label={isAr ? 'نوع الخصم' : 'Discount type'}
+                  value={couponForm.discountType}
+                  onChange={(e) =>
+                    setCouponForm({
+                      ...couponForm,
+                      discountType: e.target.value as 'PERCENTAGE' | 'FIXED',
+                    })
+                  }
+                >
+                  <option value="PERCENTAGE">{isAr ? 'نسبة مئوية' : 'Percentage'}</option>
+                  <option value="FIXED">{isAr ? 'مبلغ ثابت' : 'Fixed'}</option>
+                </Select>
+                <Input
+                  id="coupon-value"
+                  label={isAr ? 'قيمة الخصم' : 'Discount value'}
+                  type="number"
+                  min={1}
+                  value={couponForm.discountValue}
+                  onChange={(e) => setCouponForm({ ...couponForm, discountValue: e.target.value })}
+                />
+                <Input
+                  id="coupon-expires"
+                  label={isAr ? 'تاريخ الانتهاء' : 'Expires at'}
+                  type="datetime-local"
+                  value={couponForm.expiresAt}
+                  onChange={(e) => setCouponForm({ ...couponForm, expiresAt: e.target.value })}
+                />
+                <Input
+                  id="coupon-limit"
+                  label={isAr ? 'حد الاستخدام' : 'Usage limit'}
+                  type="number"
+                  min={1}
+                  value={couponForm.usageLimit}
+                  onChange={(e) => setCouponForm({ ...couponForm, usageLimit: e.target.value })}
+                />
+                <div className="md:col-span-2 xl:col-span-5">
+                  <Button type="submit" size="sm" disabled={createCoupon.isPending}>
+                    {createCoupon.isPending
+                      ? isAr
+                        ? 'جاري الإضافة...'
+                        : 'Adding...'
+                      : isAr
+                        ? 'إضافة كوبون'
+                        : 'Add coupon'}
+                  </Button>
+                </div>
+              </form>
+
+              <div className="overflow-x-auto">
+                <table className="dc-table">
+                  <thead>
+                    <tr>
+                      <th>{isAr ? 'الكود' : 'Code'}</th>
+                      <th>{isAr ? 'الخصم' : 'Discount'}</th>
+                      <th>{isAr ? 'الاستخدام' : 'Usage'}</th>
+                      <th>{isAr ? 'الانتهاء' : 'Expires'}</th>
+                      <th>{isAr ? 'إجراءات' : 'Actions'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(couponsQuery.data || []).map((coupon) => (
+                      <tr key={coupon.id}>
+                        <td className="font-semibold">{coupon.code}</td>
+                        <td>
+                          {coupon.discountType === 'PERCENTAGE'
+                            ? `${coupon.discountValue}%`
+                            : coupon.discountValue.toLocaleString(isAr ? 'ar-IQ' : 'en-US')}
+                        </td>
+                        <td>
+                          {coupon.usedCount ?? 0}
+                          {coupon.usageLimit != null ? ` / ${coupon.usageLimit}` : ''}
+                        </td>
+                        <td>
+                          {coupon.expiresAt
+                            ? new Date(coupon.expiresAt).toLocaleString(isAr ? 'ar-IQ' : 'en-US')
+                            : '—'}
+                        </td>
+                        <td>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  isAr ? `حذف الكوبون ${coupon.code}؟` : `Delete coupon ${coupon.code}?`,
+                                )
+                              ) {
+                                deleteCoupon.mutate(coupon.id);
+                              }
+                            }}
+                          >
+                            {isAr ? 'حذف' : 'Delete'}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                    {!couponsQuery.isLoading && !(couponsQuery.data || []).length ? (
+                      <tr>
+                        <td colSpan={5} className="text-sm text-[var(--color-ink-muted)]">
+                          {isAr ? 'لا توجد كوبونات بعد' : 'No coupons yet'}
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </>
+        ) : null}
       </div>
     );
   }

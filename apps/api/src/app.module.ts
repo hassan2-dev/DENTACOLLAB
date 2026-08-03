@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
 import { StorageModule } from './infrastructure/storage/storage.module';
 import { EmailModule } from './infrastructure/email/email.module';
 import { PaymentsInfraModule } from './infrastructure/payments/payments-infra.module';
+import { AuditModule } from './infrastructure/audit/audit.module';
 import { AuthModule } from './presentation/auth/auth.module';
 import { CoursesModule } from './presentation/courses/courses.module';
 import { InstructorsModule } from './presentation/instructors/instructors.module';
@@ -25,16 +27,19 @@ import { AnalyticsModule } from './presentation/analytics/analytics.module';
 import { NotificationsModule } from './presentation/notifications/notifications.module';
 import { CalendarModule } from './presentation/calendar/calendar.module';
 import { PaymentsModule } from './presentation/payments/payments.module';
+import { AuditLogsModule } from './presentation/audit/audit-logs.module';
 import { HealthController } from './presentation/health.controller';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     PrismaModule,
     StorageModule,
     EmailModule,
     PaymentsInfraModule,
+    AuditModule,
     AuthModule,
     CoursesModule,
     InstructorsModule,
@@ -54,6 +59,7 @@ import { HealthController } from './presentation/health.controller';
     NotificationsModule,
     CalendarModule,
     PaymentsModule,
+    AuditLogsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

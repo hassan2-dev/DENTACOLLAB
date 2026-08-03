@@ -24,6 +24,11 @@ type Dashboard = {
   charts: {
     registrationsByStatus: { status: string; count: number }[];
     registrationsByMonth: { month: string; count: number }[];
+    last30Days?: {
+      revenue: { day: string; label: string; amount: number }[];
+      registrations: { day: string; label: string; count: number }[];
+      payments: { day: string; label: string; count: number }[];
+    };
   };
   recentPayments?: Array<{
     id: string;
@@ -98,6 +103,10 @@ export function DashboardPage() {
     label: STATUS_LABELS[row.status]?.[ar ? 'ar' : 'en'] || row.status,
   }));
   const statusTotal = statusChart.reduce((sum, row) => sum + row.count, 0);
+  const last30 = data?.charts.last30Days;
+  const revenue30 = last30?.revenue || [];
+  const registrations30 = last30?.registrations || [];
+  const payments30 = last30?.payments || [];
 
   const metrics = [
     {
@@ -384,6 +393,127 @@ export function DashboardPage() {
                 {ar ? 'لا توجد تسجيلات بعد' : 'No registrations yet'}
               </p>
             ) : null}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Card className="overflow-hidden">
+          <CardHeader>
+            <CardTitle>{ar ? 'الإيرادات (30 يوم)' : 'Revenue (30 days)'}</CardTitle>
+            <CardDescription>{ar ? 'المبالغ المدفوعة يومياً' : 'Daily paid amounts'}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-56 w-full" dir="ltr">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={revenue30}>
+                  <defs>
+                    <linearGradient id="rev30Fill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#0f8aa3" stopOpacity={0.28} />
+                      <stop offset="100%" stopColor="#0f8aa3" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 6" vertical={false} stroke="var(--chart-grid)" />
+                  <XAxis
+                    dataKey="label"
+                    axisLine={false}
+                    tickLine={false}
+                    interval="preserveStartEnd"
+                    tick={{ fill: 'var(--color-ink-muted)', fontSize: 10 }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: 'var(--color-ink-muted)', fontSize: 10 }}
+                  />
+                  <Tooltip
+                    formatter={(value) => [Number(value).toLocaleString(ar ? 'ar-IQ' : 'en-US'), ar ? 'الإيراد' : 'Revenue']}
+                    contentStyle={{ borderRadius: 10, border: '1px solid var(--color-border)' }}
+                  />
+                  <Area type="monotone" dataKey="amount" stroke="#0f8aa3" strokeWidth={2.2} fill="url(#rev30Fill)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden">
+          <CardHeader>
+            <CardTitle>{ar ? 'التسجيلات (30 يوم)' : 'Registrations (30 days)'}</CardTitle>
+            <CardDescription>{ar ? 'عدد التسجيلات يومياً' : 'Daily registration count'}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-56 w-full" dir="ltr">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={registrations30}>
+                  <defs>
+                    <linearGradient id="reg30Fill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#1fb6d1" stopOpacity={0.28} />
+                      <stop offset="100%" stopColor="#1fb6d1" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 6" vertical={false} stroke="var(--chart-grid)" />
+                  <XAxis
+                    dataKey="label"
+                    axisLine={false}
+                    tickLine={false}
+                    interval="preserveStartEnd"
+                    tick={{ fill: 'var(--color-ink-muted)', fontSize: 10 }}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: 'var(--color-ink-muted)', fontSize: 10 }}
+                  />
+                  <Tooltip
+                    formatter={(value) => [Number(value), ar ? 'التسجيلات' : 'Registrations']}
+                    contentStyle={{ borderRadius: 10, border: '1px solid var(--color-border)' }}
+                  />
+                  <Area type="monotone" dataKey="count" stroke="#101c38" strokeWidth={2.2} fill="url(#reg30Fill)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden">
+          <CardHeader>
+            <CardTitle>{ar ? 'المدفوعات (30 يوم)' : 'Payments (30 days)'}</CardTitle>
+            <CardDescription>{ar ? 'عدد المدفوعات الناجحة يومياً' : 'Daily successful payments'}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-56 w-full" dir="ltr">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={payments30}>
+                  <defs>
+                    <linearGradient id="pay30Fill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#263d68" stopOpacity={0.28} />
+                      <stop offset="100%" stopColor="#263d68" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 6" vertical={false} stroke="var(--chart-grid)" />
+                  <XAxis
+                    dataKey="label"
+                    axisLine={false}
+                    tickLine={false}
+                    interval="preserveStartEnd"
+                    tick={{ fill: 'var(--color-ink-muted)', fontSize: 10 }}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: 'var(--color-ink-muted)', fontSize: 10 }}
+                  />
+                  <Tooltip
+                    formatter={(value) => [Number(value), ar ? 'المدفوعات' : 'Payments']}
+                    contentStyle={{ borderRadius: 10, border: '1px solid var(--color-border)' }}
+                  />
+                  <Area type="monotone" dataKey="count" stroke="#263d68" strokeWidth={2.2} fill="url(#pay30Fill)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
