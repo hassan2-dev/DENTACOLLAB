@@ -34,10 +34,10 @@ type CompanyInfo = {
 
 function resolveFont(fileName: string) {
   const candidates = [
-    path.join(__dirname, '..', '..', 'assets', 'fonts', fileName),
-    path.join(process.cwd(), 'src', 'assets', 'fonts', fileName),
+    path.join(__dirname, '..', '..', 'assets', 'fonts', fileName), // dist/assets/fonts
+    path.join(process.cwd(), 'assets', 'fonts', fileName), // /app/assets/fonts (Docker)
     path.join(process.cwd(), 'dist', 'assets', 'fonts', fileName),
-    path.join(process.cwd(), 'assets', 'fonts', fileName),
+    path.join(process.cwd(), 'src', 'assets', 'fonts', fileName),
   ];
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate;
