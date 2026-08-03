@@ -23,6 +23,13 @@ type Course = {
   currency?: string | null;
   certificate?: string;
   registrationFormUrl?: string;
+  registrationStartsAt?: string | null;
+  registrationEndsAt?: string | null;
+  registrationClosedManually?: boolean;
+  registrationState?: string;
+  registrationLabel?: string;
+  registrationCta?: string;
+  registrationOpen?: boolean;
   gallery: { url: string; alt?: string }[];
   curriculum: {
     title: string;
@@ -81,12 +88,34 @@ export function CourseDetailsPage() {
     queryFn: () => api<Faq[]>('/faq'),
   });
   const mutation = useMutation({
-    mutationFn: () =>
-      api(`/courses/${slug}/registrations`, {
+    mutationFn: async () => {
+      const courseData = course!;
+      const paid = courseData.price != null && courseData.price > 0;
+      if (paid) {
+        const session = await api<{ checkoutUrl: string; paymentId: string }>(
+          '/payments/create-session',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              courseIdOrSlug: slug,
+              answers,
+              locale,
+            }),
+          },
+        );
+        if (!session.checkoutUrl) throw new Error(isAr ? 'تعذر بدء الدفع' : 'Unable to start checkout');
+        window.location.href = session.checkoutUrl;
+        return session;
+      }
+      return api(`/courses/${slug}/registrations`, {
         method: 'POST',
         body: JSON.stringify({ answers }),
-      }),
-    onSuccess: () => setAnswers({}),
+      });
+    },
+    onSuccess: (result) => {
+      if (result && typeof result === 'object' && 'checkoutUrl' in result) return;
+      setAnswers({});
+    },
   });
 
   if (isLoading) {
@@ -96,6 +125,8 @@ export function CourseDetailsPage() {
     return <p className="dc-container py-12">{isAr ? 'لم يتم العثور على الدورة' : 'Course not found'}</p>;
   }
 
+  const isPaidCourse = course.price != null && course.price > 0;
+  const registrationOpen = course.registrationOpen !== false;
   const lessonCount = course.curriculum.reduce((total, module) => total + module.lessons.length, 0);
   const copy = isAr
     ? {
@@ -138,8 +169,8 @@ export function CourseDetailsPage() {
           ['✓', 'أنت فقط سجّل واحضر', 'أكمل التسجيل، والباقي تتولاه الأكاديمية'],
         ] as const,
         start: 'ابدأ رحلتك',
-        book: 'احجز مقعدك الآن',
-        bookBody: 'املأ استمارة التسجيل الخاصة بهذه الدورة وسيتواصل معك فريقنا.',
+        book: 'سجّل وادفع الآن',
+        bookBody: 'املأ الاستمارة ثم أكمل الدفع عبر Stripe لتأكيد تسجيلك.',
         successMsg: 'تم استلام طلبك بنجاح. سنتواصل معك قريباً.',
         openForm: 'فتح الاستمارة في نافذة جديدة',
         formTitle: 'استمارة التسجيل',
@@ -153,8 +184,10 @@ export function CourseDetailsPage() {
         ] as const,
         notes: 'ملاحظات إضافية (اختياري)',
         required: 'هذا الحقل مطلوب',
-        sending: 'جاري الإرسال...',
-        submit: 'إرسال طلب التسجيل',
+        sending: 'جاري التحويل للدفع...',
+        submit: 'تسجيل ودفع',
+        submitFree: 'إرسال طلب التسجيل',
+        closedTitle: 'التسجيل غير متاح حالياً',
         ask: 'لديك سؤال؟',
         faq: 'الأسئلة الشائعة',
       }
@@ -199,8 +232,8 @@ export function CourseDetailsPage() {
           ['✓', 'Just register and attend', 'Complete registration — the academy handles the rest'],
         ] as const,
         start: 'Start your journey',
-        book: 'Book your seat now',
-        bookBody: 'Complete this course registration form and our team will contact you.',
+        book: 'Register & Pay',
+        bookBody: 'Fill the form then complete Stripe checkout to confirm your registration.',
         successMsg: 'Your request was received. We will contact you soon.',
         openForm: 'Open form in a new tab',
         formTitle: 'Registration form',
@@ -214,8 +247,10 @@ export function CourseDetailsPage() {
         ] as const,
         notes: 'Additional notes (optional)',
         required: 'This field is required',
-        sending: 'Sending...',
-        submit: 'Submit registration',
+        sending: 'Redirecting to payment...',
+        submit: 'Register & Pay',
+        submitFree: 'Submit registration',
+        closedTitle: 'Registration is currently unavailable',
         ask: 'Have a question?',
         faq: 'Frequently asked questions',
       };
@@ -513,9 +548,17 @@ export function CourseDetailsPage() {
             <div className="text-center">
               <p className="text-xs font-bold uppercase tracking-[.18em] text-[#1fb6d1]">{copy.start}</p>
               <h2 className="mt-3 text-2xl font-bold sm:text-3xl">{copy.book}</h2>
-              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{copy.bookBody}</p>
+              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+                {registrationOpen
+                  ? copy.bookBody
+                  : course.registrationLabel || copy.closedTitle}
+              </p>
             </div>
-            {mutation.isSuccess ? (
+            {!registrationOpen ? (
+              <div className="mt-8 rounded-2xl bg-slate-100 p-6 text-center font-bold text-[#101c38] dark:bg-[#0b1a2e] dark:text-slate-200">
+                {course.registrationCta || course.registrationLabel || copy.closedTitle}
+              </div>
+            ) : mutation.isSuccess && !isPaidCourse ? (
               <div className="mt-8 rounded-2xl bg-[#e8f9fc] p-6 text-center font-bold text-[#101c38] dark:bg-[#0b2850] dark:text-[#7be7ff]">
                 {copy.successMsg}
               </div>
@@ -539,7 +582,11 @@ export function CourseDetailsPage() {
                   disabled={mutation.isPending}
                   className="rounded-full bg-gradient-to-r from-[#101c38] to-[#1fb6d1] px-6 py-3.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-60 sm:col-span-2"
                 >
-                  {mutation.isPending ? copy.sending : copy.submit}
+                  {mutation.isPending
+                    ? copy.sending
+                    : isPaidCourse
+                      ? copy.submit
+                      : copy.submitFree}
                 </button>
                 {mutation.isError ? (
                   <p className="text-center text-sm text-red-600 sm:col-span-2">{(mutation.error as Error).message}</p>

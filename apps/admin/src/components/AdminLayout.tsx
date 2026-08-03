@@ -41,6 +41,14 @@ const groups: Array<{
         icon: 'users',
       },
       {
+        to: '/payments',
+        ar: 'المدفوعات',
+        en: 'Payments',
+        hintAr: 'الفواتير والإيرادات',
+        hintEn: 'Invoices & revenue',
+        icon: 'mail',
+      },
+      {
         to: '/messages',
         ar: 'رسائل التواصل',
         en: 'Contact messages',

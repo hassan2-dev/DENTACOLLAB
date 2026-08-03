@@ -32,9 +32,11 @@ import {
 import { Type } from 'class-transformer';
 import type { Response } from 'express';
 import * as ExcelJS from 'exceljs';
+import { PublishStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { JwtAuthGuard, Public, Roles, RolesGuard } from '../auth/guards';
 import { DEFAULT_COURSE_FORM_FIELDS, slugifyFieldKey } from './form-field.defaults';
+import { isRegistrationOpen } from '../../common/registration-window';
 
 class FormOptionDto {
   @ApiProperty()
@@ -298,6 +300,15 @@ export class RegistrationsService {
 
   async create(courseIdOrSlug: string, dto: CreateRegistrationDto) {
     const course = await this.resolveCourse(courseIdOrSlug);
+    if (course.status !== PublishStatus.PUBLISHED || !isRegistrationOpen(course)) {
+      throw new BadRequestException('Registration is closed for this course');
+    }
+    // Paid courses must go through Stripe checkout — do not create unpaid registrations
+    if (course.price != null && course.price > 0) {
+      throw new BadRequestException(
+        'This course requires payment. Use /payments/create-session instead.',
+      );
+    }
     const fields = await this.listFormFields(course.id);
     const answers: Record<string, string> = { ...(dto.answers || {}) };
 

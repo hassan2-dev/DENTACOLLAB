@@ -84,6 +84,27 @@ export class CoursesController {
 
   @ApiBearerAuth()
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
+  @Post(':id/close')
+  close(@Param('id') id: string) {
+    return this.courses.setStatus(id, PublishStatus.CLOSED);
+  }
+
+  @ApiBearerAuth()
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
+  @Post(':id/close-registration')
+  closeRegistration(@Param('id') id: string) {
+    return this.courses.setRegistrationClosed(id, true);
+  }
+
+  @ApiBearerAuth()
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
+  @Post(':id/open-registration')
+  openRegistration(@Param('id') id: string) {
+    return this.courses.setRegistrationClosed(id, false);
+  }
+
+  @ApiBearerAuth()
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
   @Put(':id/curriculum')
   curriculum(@Param('id') id: string, @Body() dto: SetCurriculumDto) {
     return this.courses.setCurriculum(id, dto);

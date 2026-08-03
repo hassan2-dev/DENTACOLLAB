@@ -17,6 +17,7 @@ import { InstructorDetailsPage } from './pages/InstructorDetailsPage';
 import { ContactPage } from './pages/ContactPage';
 import { ChatPage } from './pages/ChatPage';
 import { WorkshopsPage, WorkshopDetailsPage } from './pages/WorkshopsPage';
+import { PaymentSuccessPage, PaymentFailedPage, PaymentCancelPage } from './pages/PaymentPages';
 import { LocaleProvider } from './lib/locale';
 
 const queryClient = new QueryClient();
@@ -44,6 +45,9 @@ export default function App() {
                 <Route path="faq" element={<FaqPage />} />
                 <Route path="chat" element={<ChatPage />} />
                 <Route path="contact" element={<ContactPage />} />
+                <Route path="payments/success" element={<PaymentSuccessPage />} />
+                <Route path="payments/failed" element={<PaymentFailedPage />} />
+                <Route path="payments/cancel" element={<PaymentCancelPage />} />
               </Route>
             </Routes>
           </BrowserRouter>

@@ -22,6 +22,7 @@ enum CourseLevel {
 enum PublishStatus {
   DRAFT
   PUBLISHED
+  CLOSED
   ARCHIVED
 }
 
@@ -31,6 +32,21 @@ enum RegistrationStatus {
   CONFIRMED
   REJECTED
   COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  STRIPE
+  PAYPAL
+  APPLE_PAY
+  GOOGLE_PAY
 }
 
 enum MediaType {
@@ -129,6 +145,9 @@ model Course {
   currency      String               @default("IQD")
   certificate          String?       @db.Text
   registrationFormUrl  String?
+  registrationStartsAt DateTime?
+  registrationEndsAt   DateTime?
+  registrationClosedManually Boolean @default(false)
   status               PublishStatus @default(DRAFT)
   sortOrder            Int           @default(0)
   createdAt     DateTime             @default(now())
@@ -140,6 +159,7 @@ model Course {
   formFields    CourseFormField[]
   graduates     Graduate[]
   translations  CourseTranslation[]
+  payments      Payment[]
 }
 
 enum FormFieldType {
@@ -244,10 +264,44 @@ model CourseRegistration {
   status      RegistrationStatus @default(NEW)
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
+  payments    Payment[]
 
   @@index([email])
   @@index([status])
   @@index([createdAt])
+}
+
+model Payment {
+  id                     String             @id @default(cuid())
+  registrationId         String?
+  registration           CourseRegistration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+  courseId               String
+  course                 Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  fullName               String
+  phone                  String
+  email                  String
+  answers                Json?
+  provider               PaymentProvider    @default(STRIPE)
+  stripeSessionId        String?            @unique
+  stripePaymentIntentId  String?
+  invoiceNumber          String             @unique
+  amount                 Int
+  currency               String             @default("USD")
+  paymentStatus          PaymentStatus      @default(PENDING)
+  invoicePdfUrl          String?
+  invoicePdfKey          String?
+  paidAt                 DateTime?
+  metadata               Json?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  @@index([email])
+  @@index([phone])
+  @@index([fullName])
+  @@index([invoiceNumber])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@index([courseId])
 }
 
 model GalleryAlbum {

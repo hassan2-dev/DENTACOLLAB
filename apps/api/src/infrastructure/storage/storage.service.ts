@@ -35,8 +35,17 @@ export class StorageService {
   }
 
   async upload(file: Express.Multer.File, folder = 'media') {
-    const ext = file.originalname.includes('.')
-      ? file.originalname.slice(file.originalname.lastIndexOf('.'))
+    return this.uploadBuffer(file.buffer, file.originalname, file.mimetype, folder);
+  }
+
+  async uploadBuffer(
+    buffer: Buffer,
+    originalName: string,
+    mimeType: string,
+    folder = 'media',
+  ) {
+    const ext = originalName.includes('.')
+      ? originalName.slice(originalName.lastIndexOf('.'))
       : '';
     const key = `${folder}/${randomUUID()}${ext}`;
 
@@ -44,16 +53,16 @@ export class StorageService {
       new PutObjectCommand({
         Bucket: this.bucket,
         Key: key,
-        Body: file.buffer,
-        ContentType: file.mimetype,
+        Body: buffer,
+        ContentType: mimeType,
       }),
     );
 
     return {
       key,
       url: `${this.publicBase}/${key}`,
-      size: file.size,
-      mimeType: file.mimetype,
+      size: buffer.length,
+      mimeType,
     };
   }
 

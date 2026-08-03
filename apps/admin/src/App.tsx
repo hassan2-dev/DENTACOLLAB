@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { CoursesAdminPage } from './pages/CoursesAdminPage';
 import { RegistrationsPage } from './pages/RegistrationsPage';
+import { PaymentsAdminPage } from './pages/PaymentsAdminPage';
 import {
   FaqAdminPage,
   GraduatesAdminPage,
@@ -36,6 +37,7 @@ export default function App() {
               <Route path="courses/new" element={<CoursesAdminPage />} />
               <Route path="courses/:id/edit" element={<CoursesAdminPage />} />
               <Route path="registrations" element={<RegistrationsPage />} />
+              <Route path="payments" element={<PaymentsAdminPage />} />
               <Route path="instructors" element={<InstructorsAdminPage />} />
               <Route path="instructors/new" element={<InstructorsAdminPage />} />
               <Route path="instructors/:id/edit" element={<InstructorsAdminPage />} />

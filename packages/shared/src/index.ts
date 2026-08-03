@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const CourseLevelSchema = z.enum(['STUDENTS', 'BASIC', 'ADVANCED']);
 export type CourseLevel = z.infer<typeof CourseLevelSchema>;
 
-export const PublishStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']);
+export const PublishStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'CLOSED', 'ARCHIVED']);
 export type PublishStatus = z.infer<typeof PublishStatusSchema>;
 
 export const RegistrationStatusSchema = z.enum([
@@ -14,6 +14,33 @@ export const RegistrationStatusSchema = z.enum([
   'COMPLETED',
 ]);
 export type RegistrationStatus = z.infer<typeof RegistrationStatusSchema>;
+
+export const PaymentStatusSchema = z.enum([
+  'PENDING',
+  'PAID',
+  'FAILED',
+  'CANCELLED',
+  'REFUNDED',
+]);
+export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
+
+export const PaymentProviderSchema = z.enum([
+  'STRIPE',
+  'PAYPAL',
+  'APPLE_PAY',
+  'GOOGLE_PAY',
+]);
+export type PaymentProvider = z.infer<typeof PaymentProviderSchema>;
+
+export const CreateCheckoutSessionSchema = z.object({
+  courseIdOrSlug: z.string().min(1),
+  answers: z.record(z.string()).optional(),
+  fullName: z.string().min(2).max(120).optional(),
+  phone: z.string().min(7).max(30).optional(),
+  email: z.string().email().optional(),
+  locale: z.enum(['ar', 'en']).optional(),
+});
+export type CreateCheckoutSessionInput = z.infer<typeof CreateCheckoutSessionSchema>;
 
 export const UserRoleSchema = z.enum(['SUPER_ADMIN', 'ADMIN', 'EDITOR']);
 export type UserRole = z.infer<typeof UserRoleSchema>;

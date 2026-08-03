@@ -99,14 +99,28 @@ export function HomePage() {
   }, [courseSlug]);
 
   const registration = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!courseSlug) throw new Error(isAr ? 'اختر الدورة أولاً' : 'Please select a course first');
+      const selected = publishedCourses.find((c) => c.slug === courseSlug);
+      const paid = selected?.price != null && selected.price > 0;
+      if (paid) {
+        const session = await api<{ checkoutUrl: string }>('/payments/create-session', {
+          method: 'POST',
+          body: JSON.stringify({ courseIdOrSlug: courseSlug, answers, locale }),
+        });
+        if (!session.checkoutUrl) throw new Error(isAr ? 'تعذر بدء الدفع' : 'Unable to start checkout');
+        window.location.href = session.checkoutUrl;
+        return session;
+      }
       return api(`/courses/${courseSlug}/registrations`, {
         method: 'POST',
         body: JSON.stringify({ answers }),
       });
     },
-    onSuccess: () => setAnswers({}),
+    onSuccess: (result) => {
+      if (result && typeof result === 'object' && 'checkoutUrl' in result) return;
+      setAnswers({});
+    },
   });
 
   const copy = isAr

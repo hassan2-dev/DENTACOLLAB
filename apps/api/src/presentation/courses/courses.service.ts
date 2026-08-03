@@ -9,6 +9,10 @@ import {
   UpdateCourseDto,
 } from './courses.dto';
 import { DEFAULT_COURSE_FORM_FIELDS } from '../registrations/form-field.defaults';
+import {
+  getRegistrationWindowState,
+  registrationWindowLabels,
+} from '../../common/registration-window';
 
 const courseInclude = {
   gallery: { orderBy: { sortOrder: 'asc' as const } },
@@ -50,6 +54,8 @@ function localizeCourse(course: any, locale: Locale) {
       },
     };
   });
+  const registrationState = getRegistrationWindowState(course);
+  const windowCopy = registrationWindowLabels(registrationState, locale === Locale.ar);
   return {
     ...course,
     ...(translation
@@ -63,9 +69,19 @@ function localizeCourse(course: any, locale: Locale) {
           certificate: translation.certificate,
         }
       : {}),
+    registrationState,
+    registrationLabel: windowCopy.label,
+    registrationCta: windowCopy.cta,
+    registrationOpen: registrationState === 'OPEN' && course.status === PublishStatus.PUBLISHED,
     translations: undefined,
     instructors,
   };
+}
+
+function parseOptionalDate(value?: string | null) {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  return new Date(value);
 }
 
 @Injectable()
@@ -74,11 +90,21 @@ export class CoursesService {
 
   async list(admin = false, locale: Locale = Locale.ar) {
     const courses = await this.prisma.course.findMany({
-      where: admin ? undefined : { status: PublishStatus.PUBLISHED },
+      where: admin
+        ? undefined
+        : { status: { in: [PublishStatus.PUBLISHED, PublishStatus.CLOSED] } },
       include: courseInclude,
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
     });
-    return admin ? courses : courses.map((course) => localizeCourse(course, locale));
+    return admin
+      ? courses.map((course) => ({
+          ...course,
+          registrationState: getRegistrationWindowState(course),
+          registrationOpen:
+            getRegistrationWindowState(course) === 'OPEN' &&
+            course.status === PublishStatus.PUBLISHED,
+        }))
+      : courses.map((course) => localizeCourse(course, locale));
   }
 
   async bySlug(slug: string, admin = false, locale: Locale = Locale.ar) {
@@ -86,10 +112,24 @@ export class CoursesService {
       where: { slug },
       include: courseInclude,
     });
-    if (!course || (!admin && course.status !== PublishStatus.PUBLISHED)) {
+    if (
+      !course ||
+      (!admin &&
+        course.status !== PublishStatus.PUBLISHED &&
+        course.status !== PublishStatus.CLOSED)
+    ) {
       throw new NotFoundException('Course not found');
     }
-    return admin ? course : localizeCourse(course, locale);
+    if (admin) {
+      return {
+        ...course,
+        registrationState: getRegistrationWindowState(course),
+        registrationOpen:
+          getRegistrationWindowState(course) === 'OPEN' &&
+          course.status === PublishStatus.PUBLISHED,
+      };
+    }
+    return localizeCourse(course, locale);
   }
 
   async byId(id: string) {
@@ -154,10 +194,12 @@ export class CoursesService {
   }
 
   async create(dto: CreateCourseDto) {
-    const { instructorIds, translations, ...data } = dto;
+    const { instructorIds, translations, registrationStartsAt, registrationEndsAt, ...data } = dto;
     const course = await this.prisma.course.create({
       data: {
         ...data,
+        registrationStartsAt: parseOptionalDate(registrationStartsAt) ?? undefined,
+        registrationEndsAt: parseOptionalDate(registrationEndsAt) ?? undefined,
         instructors: instructorIds?.length
           ? { create: instructorIds.map((instructorId) => ({ instructorId })) }
           : undefined,
@@ -186,7 +228,7 @@ export class CoursesService {
 
   async update(id: string, dto: UpdateCourseDto) {
     const existing = await this.byId(id);
-    const { instructorIds, translations, ...data } = dto;
+    const { instructorIds, translations, registrationStartsAt, registrationEndsAt, ...data } = dto;
     if (instructorIds) {
       await this.prisma.courseInstructor.deleteMany({ where: { courseId: id } });
     }
@@ -194,6 +236,12 @@ export class CoursesService {
       where: { id },
       data: {
         ...data,
+        ...(registrationStartsAt !== undefined
+          ? { registrationStartsAt: parseOptionalDate(registrationStartsAt) }
+          : {}),
+        ...(registrationEndsAt !== undefined
+          ? { registrationEndsAt: parseOptionalDate(registrationEndsAt) }
+          : {}),
         instructors: instructorIds
           ? { create: instructorIds.map((instructorId) => ({ instructorId })) }
           : undefined,
@@ -210,6 +258,15 @@ export class CoursesService {
       certificate: data.certificate ?? existing.certificate,
     });
     return this.byId(id);
+  }
+
+  async setRegistrationClosed(id: string, closed: boolean) {
+    await this.byId(id);
+    return this.prisma.course.update({
+      where: { id },
+      data: { registrationClosedManually: closed },
+      include: courseInclude,
+    });
   }
 
   async remove(id: string) {

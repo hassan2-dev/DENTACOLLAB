@@ -65,6 +65,9 @@ export class AnalyticsService {
 
   async dashboard() {
     const since = sixMonthsAgoStart();
+    const now = new Date();
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const [
       courses,
       publishedCourses,
@@ -81,6 +84,10 @@ export class AnalyticsService {
       sitePageViews,
       registrationsByStatus,
       recentRegistrations,
+      todaysPayments,
+      monthPaidRows,
+      recentPayments,
+      latestRegistrations,
     ] = await Promise.all([
       this.prisma.course.count(),
       this.prisma.course.count({ where: { status: 'PUBLISHED' } }),
@@ -103,6 +110,24 @@ export class AnalyticsService {
         where: { createdAt: { gte: since } },
         select: { createdAt: true },
       }),
+      this.prisma.payment.count({
+        where: { paymentStatus: 'PAID', paidAt: { gte: dayStart } },
+      }),
+      this.prisma.payment.findMany({
+        where: { paymentStatus: 'PAID', paidAt: { gte: monthStart } },
+        select: { amount: true, currency: true },
+      }),
+      this.prisma.payment.findMany({
+        where: { paymentStatus: 'PAID' },
+        include: { course: { select: { title: true, slug: true } } },
+        orderBy: { paidAt: 'desc' },
+        take: 8,
+      }),
+      this.prisma.courseRegistration.findMany({
+        include: { course: { select: { title: true, slug: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 8,
+      }),
     ]);
 
     const monthCounts = new Map<string, number>();
@@ -111,6 +136,11 @@ export class AnalyticsService {
       monthCounts.set(key, (monthCounts.get(key) || 0) + 1);
     }
     const statusCounts = new Map(registrationsByStatus.map((r) => [r.status, r._count._all]));
+    const monthlyRevenueByCurrency = monthPaidRows.reduce<Record<string, number>>((acc, row) => {
+      acc[row.currency] = (acc[row.currency] || 0) + row.amount;
+      return acc;
+    }, {});
+    const monthlyRevenue = monthPaidRows.reduce((sum, row) => sum + row.amount, 0);
 
     return {
       cards: {
@@ -127,6 +157,10 @@ export class AnalyticsService {
         knowledgeEntries,
         siteVisitors,
         sitePageViews,
+        todaysPayments,
+        monthlyRevenue,
+        monthlyRevenueByCurrency,
+        totalRegistrations: registrations,
       },
       charts: {
         registrationsByStatus: REGISTRATION_STATUSES.map((status) => ({
@@ -138,6 +172,8 @@ export class AnalyticsService {
           count: monthCounts.get(month) || 0,
         })),
       },
+      recentPayments,
+      latestRegistrations,
     };
   }
 }

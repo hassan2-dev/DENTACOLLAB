@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { BookOpen, CalendarDays, Eye, GraduationCap, Image, MessageSquare, UserPlus, Users } from 'lucide-react';
+import { BookOpen, CalendarDays, CreditCard, Eye, GraduationCap, Image, MessageSquare, UserPlus, Users } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAdminPreferences } from '../components/AdminLayout';
 import { Badge } from '../components/ui/badge';
@@ -18,11 +18,29 @@ import { Separator } from '../components/ui/separator';
 import { cn } from '@/lib/utils';
 
 type Dashboard = {
-  cards: Record<string, number>;
+  cards: Record<string, number> & {
+    monthlyRevenueByCurrency?: Record<string, number>;
+  };
   charts: {
     registrationsByStatus: { status: string; count: number }[];
     registrationsByMonth: { month: string; count: number }[];
   };
+  recentPayments?: Array<{
+    id: string;
+    fullName: string;
+    amount: number;
+    currency: string;
+    invoiceNumber: string;
+    paidAt?: string | null;
+    course: { title: string };
+  }>;
+  latestRegistrations?: Array<{
+    id: string;
+    fullName: string;
+    email: string;
+    createdAt: string;
+    course: { title: string };
+  }>;
 };
 
 const STATUS_LABELS: Record<string, { ar: string; en: string }> = {
@@ -83,6 +101,29 @@ export function DashboardPage() {
 
   const metrics = [
     {
+      label: ar ? 'مدفوعات اليوم' : "Today's Payments",
+      value: data?.cards.todaysPayments,
+      hint: ar ? 'مدفوعات ناجحة اليوم' : 'Successful payments today',
+      to: '/payments',
+      icon: CreditCard,
+    },
+    {
+      label: ar ? 'إيراد الشهر' : 'Monthly Revenue',
+      value: data?.cards.monthlyRevenue,
+      hint: Object.entries(data?.cards.monthlyRevenueByCurrency || {})
+        .map(([currency, amount]) => `${Number(amount).toLocaleString(ar ? 'ar-IQ' : 'en-US')} ${currency}`)
+        .join(' · ') || (ar ? 'بدون مدفوعات هذا الشهر' : 'No paid revenue this month'),
+      to: '/payments',
+      icon: CreditCard,
+    },
+    {
+      label: ar ? 'إجمالي التسجيلات' : 'Total Registrations',
+      value: data?.cards.totalRegistrations ?? data?.cards.registrations,
+      hint: ar ? `${data?.cards.newRegistrations ?? 0} جديدة` : `${data?.cards.newRegistrations ?? 0} new`,
+      to: '/registrations',
+      icon: UserPlus,
+    },
+    {
       label: ar ? 'زوار الموقع' : 'Site visitors',
       value: data?.cards.siteVisitors,
       hint: ar
@@ -99,36 +140,24 @@ export function DashboardPage() {
       icon: BookOpen,
     },
     {
-      label: ar ? 'التسجيلات' : 'Registrations',
-      value: data?.cards.registrations,
-      hint: ar ? `${data?.cards.newRegistrations ?? 0} جديدة` : `${data?.cards.newRegistrations ?? 0} new`,
-      to: '/registrations',
-      icon: UserPlus,
-    },
-    {
       label: ar ? 'الرسائل' : 'Messages',
       value: data?.cards.messagesUnread,
       hint: ar ? 'غير مقروءة' : 'Unread',
       to: '/messages',
       icon: MessageSquare,
     },
-    {
-      label: ar ? 'الخريجون' : 'Graduates',
-      value: data?.cards.graduates,
-      hint: ar ? 'منشورون' : 'Published',
-      to: '/graduates',
-      icon: GraduationCap,
-    },
-    {
-      label: ar ? 'المدربون' : 'Instructors',
-      value: data?.cards.instructors,
-      hint: ar ? 'في الأكاديمية' : 'In academy',
-      to: '/instructors',
-      icon: Users,
-    },
   ];
 
   const shortcuts = [
+    {
+      to: '/payments',
+      ar: 'المدفوعات',
+      en: 'Payments',
+      descAr: 'الفواتير والإيرادات',
+      descEn: 'Invoices and revenue',
+      icon: CreditCard,
+      tone: 'bg-[#e2f8fc] text-[#0f8aa3]',
+    },
     {
       to: '/courses',
       ar: 'الدورات',
@@ -355,6 +384,85 @@ export function DashboardPage() {
                 {ar ? 'لا توجد تسجيلات بعد' : 'No registrations yet'}
               </p>
             ) : null}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <div>
+              <CardTitle>{ar ? 'أحدث المدفوعات' : 'Recent Payments'}</CardTitle>
+              <CardDescription>{ar ? 'آخر المدفوعات الناجحة' : 'Latest successful payments'}</CardDescription>
+            </div>
+            <Link to="/payments" className="text-xs font-bold text-[#1fb6d1]">
+              {ar ? 'عرض الكل' : 'View all'}
+            </Link>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(data?.recentPayments || []).length === 0 ? (
+              <p className="py-4 text-center text-sm text-[var(--color-ink-muted)]">
+                {ar ? 'لا توجد مدفوعات بعد' : 'No payments yet'}
+              </p>
+            ) : (
+              (data?.recentPayments || []).map((payment) => (
+                <div
+                  key={payment.id}
+                  className="flex items-start justify-between gap-3 rounded-xl border border-[var(--color-border)] p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold">{payment.fullName}</p>
+                    <p className="truncate text-xs text-[var(--color-ink-muted)]">{payment.course.title}</p>
+                    <p className="mt-1 text-[0.7rem] text-[var(--color-ink-muted)]">{payment.invoiceNumber}</p>
+                  </div>
+                  <div className="shrink-0 text-end">
+                    <p className="text-sm font-black text-[#0f8aa3]">
+                      {payment.amount.toLocaleString(ar ? 'ar-IQ' : 'en-US')} {payment.currency}
+                    </p>
+                    <p className="text-[0.65rem] text-[var(--color-ink-muted)]">
+                      {payment.paidAt
+                        ? new Date(payment.paidAt).toLocaleDateString(ar ? 'ar-IQ' : 'en-US')
+                        : '—'}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <div>
+              <CardTitle>{ar ? 'أحدث التسجيلات' : 'Latest Registrations'}</CardTitle>
+              <CardDescription>{ar ? 'آخر طلبات التسجيل' : 'Newest enrollment requests'}</CardDescription>
+            </div>
+            <Link to="/registrations" className="text-xs font-bold text-[#1fb6d1]">
+              {ar ? 'عرض الكل' : 'View all'}
+            </Link>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(data?.latestRegistrations || []).length === 0 ? (
+              <p className="py-4 text-center text-sm text-[var(--color-ink-muted)]">
+                {ar ? 'لا توجد تسجيلات بعد' : 'No registrations yet'}
+              </p>
+            ) : (
+              (data?.latestRegistrations || []).map((reg) => (
+                <div
+                  key={reg.id}
+                  className="flex items-start justify-between gap-3 rounded-xl border border-[var(--color-border)] p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold">{reg.fullName}</p>
+                    <p className="truncate text-xs text-[var(--color-ink-muted)]">{reg.course.title}</p>
+                    <p className="mt-1 truncate text-[0.7rem] text-[var(--color-ink-muted)]">{reg.email}</p>
+                  </div>
+                  <p className="shrink-0 text-[0.65rem] text-[var(--color-ink-muted)]">
+                    {new Date(reg.createdAt).toLocaleDateString(ar ? 'ar-IQ' : 'en-US')}
+                  </p>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>

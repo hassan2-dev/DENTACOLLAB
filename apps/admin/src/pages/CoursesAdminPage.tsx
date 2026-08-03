@@ -26,6 +26,10 @@ type Course = {
   currency?: string | null;
   certificate?: string;
   coverUrl?: string;
+  registrationStartsAt?: string | null;
+  registrationEndsAt?: string | null;
+  registrationClosedManually?: boolean;
+  registrationState?: string;
   translations?: Array<{
     locale: string;
     title: string;
@@ -51,6 +55,8 @@ const empty = {
   currency: 'IQD',
   certificate: '',
   coverUrl: '',
+  registrationStartsAt: '',
+  registrationEndsAt: '',
   en_title: '',
   en_description: '',
   en_overview: '',
@@ -59,6 +65,19 @@ const empty = {
   en_duration: '',
   en_certificate: '',
 };
+
+function toDatetimeLocal(value?: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function fromDatetimeLocal(value: string) {
+  if (!value.trim()) return null;
+  return new Date(value).toISOString();
+}
 
 export function CoursesAdminPage() {
   const { language } = useAdminPreferences();
@@ -120,6 +139,8 @@ export function CoursesAdminPage() {
         currency: form.currency.trim() || 'IQD',
         certificate: form.certificate.trim() || undefined,
         coverUrl: form.coverUrl.trim() || undefined,
+        registrationStartsAt: fromDatetimeLocal(form.registrationStartsAt),
+        registrationEndsAt: fromDatetimeLocal(form.registrationEndsAt),
         translations: [
           {
             locale: 'en',
@@ -156,6 +177,31 @@ export function CoursesAdminPage() {
       notify.success(isAr ? 'تم نشر الدورة' : 'Course published');
     },
     onError: () => notify.error(isAr ? 'فشل النشر' : 'Publish failed'),
+  });
+  const closeCourse = useMutation({
+    mutationFn: (id: string) => api(`/courses/${id}/close`, { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-courses'] });
+      notify.success(isAr ? 'تم إغلاق الدورة' : 'Course closed');
+    },
+    onError: () => notify.error(isAr ? 'فشل الإغلاق' : 'Close failed'),
+  });
+  const closeRegistration = useMutation({
+    mutationFn: ({ id, open }: { id: string; open: boolean }) =>
+      api(`/courses/${id}/${open ? 'open-registration' : 'close-registration'}`, { method: 'POST' }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['admin-courses'] });
+      notify.success(
+        vars.open
+          ? isAr
+            ? 'تم فتح التسجيل'
+            : 'Registration opened'
+          : isAr
+            ? 'تم إغلاق التسجيل يدوياً'
+            : 'Registration closed manually',
+      );
+    },
+    onError: () => notify.error(isAr ? 'فشلت العملية' : 'Action failed'),
   });
   const archive = useMutation({
     mutationFn: (id: string) => api(`/courses/${id}/archive`, { method: 'POST' }),
@@ -197,6 +243,8 @@ export function CoursesAdminPage() {
       currency: c.currency || 'IQD',
       certificate: c.certificate || '',
       coverUrl: c.coverUrl || '',
+      registrationStartsAt: toDatetimeLocal(c.registrationStartsAt),
+      registrationEndsAt: toDatetimeLocal(c.registrationEndsAt),
       en_title: en?.title || '',
       en_description: en?.description || '',
       en_overview: en?.overview || '',
@@ -214,6 +262,7 @@ export function CoursesAdminPage() {
 
   const statusLabel = (status: string) => {
     if (status === 'PUBLISHED') return isAr ? 'منشور' : 'Published';
+    if (status === 'CLOSED') return isAr ? 'مغلق' : 'Closed';
     if (status === 'ARCHIVED') return isAr ? 'مؤرشف' : 'Archived';
     return isAr ? 'مسودة' : 'Draft';
   };
@@ -282,6 +331,23 @@ export function CoursesAdminPage() {
               <option value="IQD">{isAr ? 'دينار عراقي (IQD)' : 'Iraqi Dinar (IQD)'}</option>
               <option value="USD">{isAr ? 'دولار (USD)' : 'US Dollar (USD)'}</option>
             </Select>
+          </div>
+
+          <div className="mb-5 grid gap-3 md:grid-cols-2">
+            <Input
+              id="registrationStartsAt"
+              label={isAr ? 'بداية التسجيل' : 'Registration start'}
+              type="datetime-local"
+              value={form.registrationStartsAt}
+              onChange={(e) => setForm({ ...form, registrationStartsAt: e.target.value })}
+            />
+            <Input
+              id="registrationEndsAt"
+              label={isAr ? 'نهاية التسجيل' : 'Registration end'}
+              type="datetime-local"
+              value={form.registrationEndsAt}
+              onChange={(e) => setForm({ ...form, registrationEndsAt: e.target.value })}
+            />
           </div>
 
           <MediaImageField
@@ -421,6 +487,28 @@ export function CoursesAdminPage() {
                         </Button>
                         <Button type="button" size="sm" variant="accent" onClick={() => publish.mutate(c.id)}>
                           {isAr ? 'نشر' : 'Publish'}
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" onClick={() => closeCourse.mutate(c.id)}>
+                          {isAr ? 'إغلاق' : 'Close'}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() =>
+                            closeRegistration.mutate({
+                              id: c.id,
+                              open: Boolean(c.registrationClosedManually),
+                            })
+                          }
+                        >
+                          {c.registrationClosedManually
+                            ? isAr
+                              ? 'فتح التسجيل'
+                              : 'Open reg.'
+                            : isAr
+                              ? 'إغلاق التسجيل'
+                              : 'Close reg.'}
                         </Button>
                         <Button type="button" size="sm" variant="outline" onClick={() => archive.mutate(c.id)}>
                           {isAr ? 'أرشفة' : 'Archive'}

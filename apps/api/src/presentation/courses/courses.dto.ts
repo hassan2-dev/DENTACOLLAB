@@ -1,5 +1,7 @@
 import {
   IsArray,
+  IsBoolean,
+  IsDateString,
   IsEnum,
   IsInt,
   IsOptional,
@@ -110,6 +112,21 @@ export class CreateCourseDto {
   @IsString()
   registrationFormUrl?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  registrationStartsAt?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  registrationEndsAt?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  registrationClosedManually?: boolean;
+
   @ApiPropertyOptional({ enum: PublishStatus })
   @IsOptional()
   @IsEnum(PublishStatus)
@@ -197,6 +214,21 @@ export class UpdateCourseDto {
   @IsOptional()
   @IsString()
   registrationFormUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  registrationStartsAt?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  registrationEndsAt?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  registrationClosedManually?: boolean;
 
   @ApiPropertyOptional({ enum: PublishStatus })
   @IsOptional()
