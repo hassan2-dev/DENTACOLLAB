@@ -483,43 +483,43 @@ export function HomePage() {
                 {[
                   {
                     number: '1',
-                    title: isAr ? 'التصميم على Exocad' : 'Design on Exocad',
-                    body: isAr ? 'تصميم الحالة بدقة عالية' : 'Design with precision',
-                    image: stockPhoto(0),
+                    title: isAr ? 'التصميم الرقمي' : 'Digital Design',
+                    body: isAr ? 'التصميم داخل Exocad' : 'Designing in exocad',
+                    image: '/step-1.jpg',
                   },
                   {
                     number: '2',
                     title: isAr ? 'تصدير ملف STL' : 'Export STL File',
-                    body: isAr ? 'تهيئة الملف للطباعة' : 'Prepare for printing',
-                    image: stockPhoto(1),
+                    body: isAr ? 'تصدير التصميم كملف STL' : 'Export the design as STL file',
+                    image: '/step-2.jpg',
                   },
                   {
                     number: '3',
                     title: isAr ? 'الطباعة ثلاثية الأبعاد' : '3D Printing',
-                    body: isAr ? 'طباعة دقيقة وعالية الجودة' : 'High-quality printing',
-                    image: stockPhoto(2),
+                    body: isAr ? 'طباعة النموذج' : 'Printing the model',
+                    image: '/step-3.jpg',
                   },
                   {
                     number: '4',
                     title: isAr ? 'النتيجة النهائية' : 'Final Result',
-                    body: isAr ? 'تقييم عملك واستخدامه' : 'Evaluate and use it',
-                    image: stockPhoto(3),
+                    body: isAr ? 'نموذج مطبوع بدقة عالية' : 'High-precision 3D printed model',
+                    image: '/step-4.jpg',
                   },
                 ].map((step, index) => (
                   <article
                     key={step.number}
                     className="group relative flex gap-3 border-b border-slate-100 p-4 last:border-b-0 sm:block sm:min-h-52 sm:border-b-0 sm:border-e sm:p-3 sm:text-center sm:last:border-e-0 dark:border-[#19314f]"
                   >
-                    <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-xl bg-[#f2f5fa] sm:h-28 sm:w-full">
+                    <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-xl bg-[#111] sm:h-32 sm:w-full">
                       <img
                         src={step.image}
-                        alt=""
+                        alt={step.title}
                         loading="lazy"
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                        className="h-full w-full object-cover object-center transition duration-500 group-hover:scale-105"
                       />
                     </div>
                     {index < 3 ? (
-                      <span className="absolute -end-2.5 top-16 z-10 hidden h-6 w-6 place-items-center rounded-full bg-white text-lg font-black text-[#1664c0] shadow-md md:grid dark:bg-[#101c38] dark:text-[#42d7ff]">
+                      <span className="absolute -end-2.5 top-[4.25rem] z-10 hidden h-6 w-6 place-items-center rounded-full bg-white text-lg font-black text-[#1664c0] shadow-md md:grid dark:bg-[#101c38] dark:text-[#42d7ff]">
                         {isAr ? '‹' : '›'}
                       </span>
                     ) : null}
@@ -537,13 +537,14 @@ export function HomePage() {
               </div>
 
               <div className="relative flex min-h-64 flex-col justify-between overflow-hidden bg-[#071b3d] p-6 text-white lg:min-h-0">
-                <div className="absolute inset-0 opacity-30">
+                <div className="absolute inset-0">
                   <img
-                    src={stockPhoto(4)}
+                    src="/steps.jpg"
                     alt=""
                     loading="lazy"
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover object-center opacity-55"
                   />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#04101c] via-[#04101c]/55 to-[#04101c]/25" />
                 </div>
                 <div className="relative z-10">
                   <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-[#42d7ff]">
@@ -581,31 +582,67 @@ export function HomePage() {
             {[
               {
                 title: isAr ? 'التصميم الرقمي' : 'Digital Design',
-                body: isAr ? 'تصميم التركيبات والابتسامة عبر Exocad بمسار عملي واضح.' : 'Design restorations and smiles through a practical Exocad workflow.',
-                image: stockPhoto(5),
+                body: isAr
+                  ? 'تصميم التركيبات والابتسامة عبر Exocad بمسار عملي واضح.'
+                  : 'Design restorations and smiles through a practical Exocad workflow.',
+                image: '/smale.jpg',
+                // Focus bridge / teeth model; crop exocad UI chrome
+                imageClass: 'scale-[1.5] object-[55%_48%]',
                 className: 'md:row-span-2',
+                featured: true,
+                badge: 'Exocad' as string | null,
               },
               {
                 title: isAr ? 'تخطيط الزرعات' : 'Implant Planning',
                 body: isAr ? 'تخطيط دقيق وموجّه للحالات الجراحية.' : 'Precise, guided planning for surgical cases.',
-                image: courseCover(featured?.coverUrl, 18),
+                image: '/exoplan.jpg',
+                // Focus CBCT + implant; crop exoplan UI chrome
+                imageClass: 'scale-[1.55] object-[58%_48%]',
                 className: '',
+                featured: false,
+                badge: 'Exoplan' as string | null,
               },
               {
                 title: isAr ? 'الطباعة ثلاثية الأبعاد' : '3D Printing',
                 body: isAr ? 'من الملف الرقمي إلى نموذج جاهز للاستخدام.' : 'From a digital file to a production-ready model.',
-                image: stockPhoto(6),
+                image: '/printer.jpg',
+                imageClass: 'object-[50%_45%]',
                 className: '',
+                featured: false,
+                badge: 'Formlabs' as string | null,
               },
             ].map((item) => (
               <article
                 key={item.title}
-                className={`group relative min-h-[250px] overflow-hidden rounded-[1.6rem] bg-[#101c38] ${item.className}`}
+                className={`group relative min-h-[250px] overflow-hidden rounded-[1.6rem] bg-[#101c38] ring-1 ring-black/5 ${item.className}`}
               >
-                <img src={item.image} alt={item.title} className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#071329]/95 via-[#071329]/25 to-transparent" />
+                <div className="absolute inset-0 overflow-hidden">
+                  <div className="absolute inset-0 transition duration-700 group-hover:scale-[1.04]">
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className={`h-full w-full object-cover ${item.imageClass}`}
+                    />
+                  </div>
+                </div>
+                <div
+                  className={`absolute inset-0 ${
+                    item.badge
+                      ? 'bg-[linear-gradient(180deg,rgba(7,19,41,.15)_0%,rgba(7,19,41,.35)_42%,rgba(7,19,41,.92)_78%,rgba(7,19,41,.98)_100%)]'
+                      : 'bg-gradient-to-t from-[#071329]/95 via-[#071329]/25 to-transparent'
+                  }`}
+                />
+                {item.badge ? (
+                  <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_0_1px_rgba(255,255,255,.08)]" />
+                ) : null}
                 <div className="absolute inset-x-0 bottom-0 p-6 text-white md:p-8">
-                  <p className="text-xs font-bold uppercase tracking-[.18em] text-[#7be7ff]">{copy.disciplinesLabel}</p>
+                  {item.badge ? (
+                    <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.14em] text-[#7be7ff] backdrop-blur-sm">
+                      {item.badge}
+                    </span>
+                  ) : (
+                    <p className="text-xs font-bold uppercase tracking-[.18em] text-[#7be7ff]">{copy.disciplinesLabel}</p>
+                  )}
                   <h3 className="mt-2 text-2xl font-black">{item.title}</h3>
                   <p className="mt-2 max-w-md text-sm leading-7 text-slate-200">{item.body}</p>
                 </div>
@@ -637,7 +674,7 @@ export function HomePage() {
                 <img
                   src={courseCover(course.coverUrl, idx)}
                   alt={course.title}
-                  className="h-48 w-full object-cover transition duration-500 hover:scale-[1.02]"
+                  className="h-48 w-full object-cover object-center transition duration-500 hover:scale-[1.02]"
                 />
                 <div className="p-6">
                   <div className="flex items-start justify-between gap-3">

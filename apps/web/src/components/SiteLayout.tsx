@@ -17,6 +17,32 @@ const links = [
   { to: '/contact', key: 'contact' },
 ] as const;
 
+function IconFacebook({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="M14 8.2h2.2V5H14c-2.3 0-3.9 1.5-3.9 4v1.6H8.2V13H10v6.2h2.9V13h2.1l.4-2.4h-2.5V9.3c0-.7.3-1.1 1.1-1.1Z" />
+    </svg>
+  );
+}
+
+function IconInstagram({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="4.1" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="17.2" cy="6.8" r="1.15" fill="currentColor" />
+    </svg>
+  );
+}
+
+function IconWhatsApp({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="M12.04 3.2c-4.8 0-8.7 3.85-8.7 8.6 0 1.52.4 2.98 1.16 4.27L3.2 20.8l4.9-1.27a8.7 8.7 0 0 0 3.94.94c4.8 0 8.7-3.85 8.7-8.6s-3.9-8.67-8.7-8.67Zm0 15.84c-1.28 0-2.53-.34-3.62-.98l-.26-.15-2.9.76.77-2.82-.17-.29a7.05 7.05 0 0 1-1.1-3.76c0-3.9 3.22-7.07 7.28-7.07 3.9 0 7.28 3.17 7.28 7.07 0 3.9-3.38 7.24-7.28 7.24Zm4-5.28c-.22-.11-1.3-.64-1.5-.71-.2-.08-.35-.11-.5.11-.14.22-.57.71-.7.86-.13.14-.26.16-.48.05-.22-.11-.93-.34-1.77-1.08-.65-.57-1.1-1.28-1.22-1.5-.13-.22-.01-.34.1-.45.1-.1.22-.26.33-.39.11-.13.14-.22.22-.37.07-.14.04-.27-.02-.38-.05-.11-.5-1.2-.68-1.64-.18-.43-.36-.37-.5-.38h-.42c-.14 0-.38.05-.58.27-.2.22-.76.74-.76 1.8s.78 2.09.89 2.24c.11.14 1.53 2.33 3.7 3.27 2.17.94 2.17.63 2.56.59.39-.04 1.3-.53 1.48-1.04.18-.51.18-.95.13-1.04-.05-.1-.2-.16-.42-.27Z" />
+    </svg>
+  );
+}
+
 export function SiteLayout() {
   const { locale, setLocale, t } = useLocale();
   const location = useLocation();
@@ -189,21 +215,46 @@ export function SiteLayout() {
               <span aria-hidden="true">{locale === 'ar' ? '←' : '→'}</span>
             </Link>
 
-            {Object.keys(social).length ? (
-              <div className="mt-7 flex flex-wrap gap-2">
-                {Object.entries(social).map(([key, value]) => (
-                  <a
-                    key={key}
-                    href={value}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="grid h-10 min-w-10 place-items-center rounded-full border border-white/12 px-3 text-[11px] font-bold uppercase tracking-wide text-slate-300 transition hover:border-[#1fb6d1] hover:text-white"
-                  >
-                    {key === 'instagram' ? (locale === 'ar' ? 'انستا' : 'IG') : key === 'facebook' ? (locale === 'ar' ? 'فيس' : 'FB') : key}
-                  </a>
-                ))}
-              </div>
-            ) : null}
+            {(() => {
+              const waHref = `https://wa.me/${(general.whatsapp || '+9647817828545').replace(/[^\d]/g, '')}`;
+              const socialLinks = [
+                {
+                  key: 'instagram',
+                  href: social.instagram || 'https://www.instagram.com/dentacollab',
+                  label: 'Instagram',
+                  icon: <IconInstagram className="h-5 w-5" />,
+                },
+                {
+                  key: 'facebook',
+                  href: social.facebook || 'https://www.facebook.com/Digitaldentistrytrainingcourses',
+                  label: 'Facebook',
+                  icon: <IconFacebook className="h-5 w-5" />,
+                },
+                {
+                  key: 'whatsapp',
+                  href: waHref,
+                  label: 'WhatsApp',
+                  icon: <IconWhatsApp className="h-5 w-5" />,
+                },
+              ];
+              return (
+                <div className="mt-7 flex flex-wrap gap-2.5">
+                  {socialLinks.map((item) => (
+                    <a
+                      key={item.key}
+                      href={item.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={item.label}
+                      title={item.label}
+                      className="grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-white/5 text-slate-200 transition hover:border-[#1fb6d1] hover:bg-[#1fb6d1] hover:text-[#04101c]"
+                    >
+                      {item.icon}
+                    </a>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           <div>

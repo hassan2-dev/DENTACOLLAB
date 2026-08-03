@@ -37,7 +37,8 @@ type CourseSeed = {
   curriculum: ModuleSeed[];
 };
 
-const COVER = '/dentacollab-hero.png';
+const COVER =
+  'https://pub-8205b49f168648fa981829f9d98e96b5.r2.dev/media/e02bcc0d-1f6a-48f8-b0f0-cc0296d1d6a4.jpg';
 
 const exoplanCourses: CourseSeed[] = [
   {

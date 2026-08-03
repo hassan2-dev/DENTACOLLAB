@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api';
 import { useLocale } from '../lib/locale';
-import { personPhoto, stockPhoto } from '../lib/media';
+import { personPhoto } from '../lib/media';
 import { LogoLoader } from '../components/LogoLoader';
 
 type TeamMember = {
@@ -152,18 +152,30 @@ export function AboutPage() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="relative mx-auto w-full max-w-md"
           >
-            <div className="absolute -inset-6 rounded-[2rem] bg-[#1fb6d1]/15 blur-2xl" />
-            <div className="relative overflow-hidden rounded-[1.8rem] border border-white/15 shadow-[0_30px_80px_rgba(0,0,0,.4)]">
-              <img
-                src={stockPhoto(12)}
-                alt="DentaCollab"
-                className="aspect-[4/5] w-full object-cover sm:aspect-[5/6]"
-              />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#04101c] via-[#04101c]/55 to-transparent p-5 pt-16">
-                <p className="text-[11px] font-bold uppercase tracking-[.18em] text-[#7be7ff]">Digital Dentistry</p>
-                <p className="mt-1 text-lg font-bold text-white">
-                  {isAr ? 'تدريب عملي · تقنية حديثة' : 'Hands-on · Modern tech'}
-                </p>
+            <div className="absolute -inset-6 rounded-[2rem] bg-[#1fb6d1]/20 blur-2xl" />
+            <div className="relative overflow-hidden rounded-[1.8rem] border border-white/20 shadow-[0_30px_80px_rgba(0,0,0,.45)]">
+              <div className="flex aspect-[4/5] flex-col sm:aspect-[5/6]">
+                <div className="relative flex flex-1 items-center justify-center bg-[#f4f8fb] px-8 py-10 sm:px-12 sm:py-12">
+                  <div
+                    aria-hidden
+                    className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(31,182,209,.18),transparent_58%)]"
+                  />
+                  <div
+                    aria-hidden
+                    className="absolute inset-6 rounded-[1.4rem] border border-[#101c38]/06 bg-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,.9)] backdrop-blur-[2px]"
+                  />
+                  <img
+                    src="/logo.png"
+                    alt="DentaCollab"
+                    className="relative z-10 h-auto w-full max-w-[200px] object-contain drop-shadow-[0_8px_24px_rgba(16,28,56,.12)] sm:max-w-[230px]"
+                  />
+                </div>
+                <div className="border-t border-white/10 bg-[#04101c] px-5 py-5 text-center sm:px-6 sm:py-6">
+                  <p className="text-[11px] font-bold uppercase tracking-[.18em] text-[#7be7ff]">Digital Dentistry</p>
+                  <p className="mt-1.5 text-base font-bold text-white sm:text-lg">
+                    {isAr ? 'تدريب عملي · تقنية حديثة' : 'Hands-on · Modern tech'}
+                  </p>
+                </div>
               </div>
             </div>
           </motion.div>

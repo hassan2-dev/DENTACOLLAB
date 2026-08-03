@@ -229,9 +229,9 @@ export function CourseDetailsPage() {
 
       <section className="relative min-h-[420px] overflow-hidden md:min-h-[650px]">
         <img
-          src={courseCover(course.coverUrl, 7)}
+          src={courseCover(course.coverUrl)}
           alt={course.title}
-          className={`absolute inset-0 h-full w-full object-cover ${isAr ? '-scale-x-100' : ''}`}
+          className="absolute inset-0 h-full w-full object-cover object-center"
         />
         <div
           className={`absolute inset-0 ${

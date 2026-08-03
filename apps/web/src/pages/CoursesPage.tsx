@@ -74,7 +74,7 @@ export function CoursesPage() {
                 <img
                   src={courseCover(course.coverUrl, idx)}
                   alt={course.title}
-                  className="h-52 w-full object-cover transition duration-500 group-hover:scale-105"
+                  className="h-52 w-full object-cover object-center transition duration-500 group-hover:scale-105"
                 />
                 <div className="p-5">
                   <div className="mb-3 flex flex-wrap gap-2">
