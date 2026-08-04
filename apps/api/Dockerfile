@@ -33,6 +33,18 @@ RUN pnpm exec prisma generate \
   && test -f dist/assets/fonts/DejaVuSans.ttf \
   && echo "Build OK: dist/main.js + fonts"
 
+WORKDIR /app
+RUN pnpm --filter @dentacollab/api deploy --prod --legacy /prod \
+  && rm -rf /prod/dist /prod/src /prod/test \
+  && mkdir -p /prod/dist /prod/prisma /prod/assets/fonts \
+  && cp -a /app/apps/api/dist/. /prod/dist/ \
+  && cp -a /app/apps/api/prisma/. /prod/prisma/ \
+  && cp -a /app/apps/api/src/assets/fonts/. /prod/assets/fonts/ \
+  && cd /prod \
+  && pnpm exec prisma generate \
+  && test -f dist/main.js \
+  && echo "Deploy bundle OK"
+
 FROM node:22-bookworm-slim AS runner
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y \
@@ -42,12 +54,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-COPY --from=build /app/apps/api/dist ./dist
-COPY --from=build /app/apps/api/package.json ./package.json
-COPY --from=build /app/apps/api/prisma ./prisma
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=build /app/apps/api/src/assets/fonts ./assets/fonts
+COPY --from=build /prod/ ./
 
 EXPOSE 3000
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]

@@ -1,8 +1,7 @@
 # DentaCollab API — Coolify
 # Build Pack: Dockerfile | Dockerfile: /Dockerfile | Base: / | Port: 3000
 #
-# Coolify injects NODE_ENV=production into the build — we force install of
-# devDependencies so `nest build` / typescript work.
+# Uses pnpm deploy for a slim production image (avoids copying full monorepo node_modules).
 
 FROM node:22-bookworm-slim AS base
 ENV DEBIAN_FRONTEND=noninteractive
@@ -18,7 +17,6 @@ RUN apt-get update -y \
 WORKDIR /app
 
 FROM base AS deps
-# Force full install even if Coolify sets NODE_ENV=production
 ENV NODE_ENV=development
 ENV CI=1
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
@@ -39,6 +37,19 @@ RUN pnpm exec prisma generate \
   && test -f dist/assets/fonts/DejaVuSans.ttf \
   && echo "Build OK: dist/main.js + fonts"
 
+# Portable production package (prod deps only — much smaller COPY for Coolify)
+WORKDIR /app
+RUN pnpm --filter @dentacollab/api deploy --prod --legacy /prod \
+  && rm -rf /prod/dist /prod/src /prod/test \
+  && mkdir -p /prod/dist /prod/prisma /prod/assets/fonts \
+  && cp -a /app/apps/api/dist/. /prod/dist/ \
+  && cp -a /app/apps/api/prisma/. /prod/prisma/ \
+  && cp -a /app/apps/api/src/assets/fonts/. /prod/assets/fonts/ \
+  && cd /prod \
+  && pnpm exec prisma generate \
+  && test -f dist/main.js \
+  && echo "Deploy bundle OK"
+
 FROM node:22-bookworm-slim AS runner
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y \
@@ -48,13 +59,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-COPY --from=build /app/apps/api/dist ./dist
-COPY --from=build /app/apps/api/package.json ./package.json
-COPY --from=build /app/apps/api/prisma ./prisma
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
-# Invoice PDF Arabic/Latin fonts (also copied via nest assets; keep explicit fallback)
-COPY --from=build /app/apps/api/src/assets/fonts ./assets/fonts
+COPY --from=build /prod/ ./
 
 EXPOSE 3000
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
