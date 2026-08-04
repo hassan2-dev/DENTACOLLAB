@@ -1,7 +1,8 @@
 # DentaCollab API — Coolify
 # Build Pack: Dockerfile | Dockerfile: /Dockerfile | Base: / | Port: 3000
 #
-# Uses pnpm deploy for a slim production image (avoids copying full monorepo node_modules).
+# Slim runtime: prod dependencies only (no nest/typescript) to avoid Coolify
+# failing on huge node_modules COPY.
 
 FROM node:22-bookworm-slim AS base
 ENV DEBIAN_FRONTEND=noninteractive
@@ -37,18 +38,23 @@ RUN pnpm exec prisma generate \
   && test -f dist/assets/fonts/DejaVuSans.ttf \
   && echo "Build OK: dist/main.js + fonts"
 
-# Portable production package (prod deps only — much smaller COPY for Coolify)
-WORKDIR /app
-RUN pnpm --filter @dentacollab/api deploy --prod --legacy /prod \
-  && rm -rf /prod/dist /prod/src /prod/test \
-  && mkdir -p /prod/dist /prod/prisma /prod/assets/fonts \
-  && cp -a /app/apps/api/dist/. /prod/dist/ \
-  && cp -a /app/apps/api/prisma/. /prod/prisma/ \
-  && cp -a /app/apps/api/src/assets/fonts/. /prod/assets/fonts/ \
-  && cd /prod \
-  && pnpm exec prisma generate \
+# Fresh prod-only install (much smaller than copying full build node_modules)
+FROM base AS prod-deps
+ENV NODE_ENV=production
+ENV CI=1
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY apps/api/package.json apps/api/
+COPY packages/shared/package.json packages/shared/
+RUN pnpm install --filter @dentacollab/api... --frozen-lockfile --prod=true
+
+FROM prod-deps AS bundle
+COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=build /app/apps/api/prisma ./apps/api/prisma
+COPY --from=build /app/apps/api/src/assets/fonts ./apps/api/assets/fonts
+WORKDIR /app/apps/api
+RUN pnpm exec prisma generate \
   && test -f dist/main.js \
-  && echo "Deploy bundle OK"
+  && echo "Bundle OK"
 
 FROM node:22-bookworm-slim AS runner
 ENV DEBIAN_FRONTEND=noninteractive
@@ -59,7 +65,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-COPY --from=build /prod/ ./
+COPY --from=bundle /app/apps/api/dist ./dist
+COPY --from=bundle /app/apps/api/prisma ./prisma
+COPY --from=bundle /app/apps/api/package.json ./package.json
+COPY --from=bundle /app/apps/api/assets ./assets
+COPY --from=bundle /app/node_modules ./node_modules
 
 EXPOSE 3000
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
