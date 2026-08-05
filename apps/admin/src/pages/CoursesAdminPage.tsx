@@ -77,7 +77,7 @@ const empty = {
   duration: '',
   level: 'BASIC',
   price: '',
-  currency: 'IQD',
+  currency: 'USD',
   certificate: '',
   coverUrl: '',
   registrationFormUrl: '',
@@ -187,7 +187,7 @@ export function CoursesAdminPage() {
         duration: form.duration.trim(),
         level: form.level,
         price: Number.isFinite(priceValue as number) ? priceValue : null,
-        currency: form.currency.trim() || 'IQD',
+        currency: 'USD',
         certificate: form.certificate.trim() || undefined,
         coverUrl: form.coverUrl.trim() || undefined,
         registrationFormUrl: form.registrationFormUrl.trim() || undefined,
@@ -330,7 +330,7 @@ export function CoursesAdminPage() {
       duration: c.duration,
       level: c.level,
       price: c.price != null ? String(c.price) : '',
-      currency: c.currency || 'IQD',
+      currency: 'USD',
       certificate: c.certificate || '',
       coverUrl: c.coverUrl || '',
       registrationFormUrl: c.registrationFormUrl || '',
@@ -410,22 +410,19 @@ export function CoursesAdminPage() {
             </Select>
             <Input
               id="price"
-              label={isAr ? 'السعر' : 'Price'}
+              label={isAr ? 'السعر (USD)' : 'Price (USD)'}
               type="number"
               min={0}
               value={form.price}
               onChange={(e) => setForm({ ...form, price: e.target.value })}
-              placeholder={isAr ? 'مثال: 250000' : 'e.g. 250000'}
+              placeholder={isAr ? 'مثال: 150' : 'e.g. 150'}
             />
-            <Select
-              id="currency"
-              label={isAr ? 'العملة' : 'Currency'}
-              value={form.currency}
-              onChange={(e) => setForm({ ...form, currency: e.target.value })}
-            >
-              <option value="IQD">{isAr ? 'دينار عراقي (IQD)' : 'Iraqi Dinar (IQD)'}</option>
-              <option value="USD">{isAr ? 'دولار (USD)' : 'US Dollar (USD)'}</option>
-            </Select>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold text-slate-500">{isAr ? 'العملة' : 'Currency'}</span>
+              <div className="flex h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                {isAr ? 'دولار أمريكي (USD)' : 'US Dollar (USD)'}
+              </div>
+            </div>
           </div>
 
           <div className="mb-5 grid gap-3 md:grid-cols-2">
@@ -780,7 +777,7 @@ export function CoursesAdminPage() {
                     </td>
                     <td className="text-sm font-semibold">
                       {c.price != null
-                        ? `${c.price.toLocaleString(isAr ? 'ar-IQ' : 'en-US')} ${c.currency || 'IQD'}`
+                        ? `${c.price.toLocaleString(isAr ? 'en-US' : 'en-US')} USD`
                         : '—'}
                     </td>
                     <td>

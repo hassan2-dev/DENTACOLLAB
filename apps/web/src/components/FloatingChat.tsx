@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useLocale } from '../lib/locale';
+import { QuickPromptsScroller } from './QuickPromptsScroller';
 
 type ChatMessage = {
   role: 'user' | 'bot';
@@ -412,21 +413,14 @@ export function FloatingChat() {
             </div>
 
             <div className="border-t border-slate-200/80 bg-white p-3 dark:border-[#1a2f4d] dark:bg-[#071426]">
-              <div className="mb-2.5 flex gap-1.5 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {quickPrompts.map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    data-chat-control
-                    title={prompt}
-                    onClick={() => send(prompt)}
-                    disabled={chat.isPending}
-                    className="max-w-[13.5rem] shrink-0 truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:border-[#1fb6d1] hover:bg-[#e8f9fc] hover:text-[#0f7f94] disabled:opacity-45 dark:border-[#1a2f4d] dark:bg-[#0a1628] dark:text-slate-300 dark:hover:border-[#1fb6d1]"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
+              <QuickPromptsScroller
+                className="mb-2.5"
+                prompts={quickPrompts}
+                onSelect={send}
+                disabled={chat.isPending}
+                isAr={isAr}
+                size="sm"
+              />
 
               <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-[#f7fafc] p-1.5 transition focus-within:border-[#1fb6d1] focus-within:ring-4 focus-within:ring-[#1fb6d1]/12 dark:border-[#1a2f4d] dark:bg-[#06101f]">
                 <textarea

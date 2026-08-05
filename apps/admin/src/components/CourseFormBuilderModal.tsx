@@ -13,7 +13,7 @@ export type CourseFormField = {
   labelEn: string;
   placeholderAr?: string | null;
   placeholderEn?: string | null;
-  type: 'TEXT' | 'TEXTAREA' | 'EMAIL' | 'PHONE' | 'NUMBER' | 'SELECT';
+  type: 'TEXT' | 'TEXTAREA' | 'EMAIL' | 'PHONE' | 'NUMBER' | 'SELECT' | 'IMAGE';
   required: boolean;
   options: Array<{ ar: string; en: string; value: string }> | unknown;
   sortOrder: number;
@@ -74,6 +74,7 @@ const TYPE_LABELS: Record<CourseFormField['type'], { ar: string; en: string }> =
   PHONE: { ar: 'هاتف', en: 'Phone' },
   NUMBER: { ar: 'رقم', en: 'Number' },
   SELECT: { ar: 'قائمة', en: 'Select' },
+  IMAGE: { ar: 'صورة', en: 'Image' },
 };
 
 export function CourseFormBuilderModal({
@@ -265,7 +266,7 @@ export function CourseFormBuilderModal({
                       {isAr ? field.labelAr : field.labelEn}
                     </strong>
                     <p className="mt-0.5 text-[11px] text-[var(--color-ink-muted)]">
-                      {field.key} · {TYPE_LABELS[field.type][isAr ? 'ar' : 'en']} ·{' '}
+                      {field.key} · {(TYPE_LABELS[field.type] || { ar: field.type, en: field.type })[isAr ? 'ar' : 'en']} ·{' '}
                       {field.required ? (isAr ? 'مطلوب' : 'Required') : isAr ? 'اختياري' : 'Optional'}
                       {field.width === 'full' ? ` · ${isAr ? 'عرض كامل' : 'Full width'}` : ''}
                     </p>
@@ -380,6 +381,13 @@ export function CourseFormBuilderModal({
                     onChange={(e) => setDraft({ ...draft, optionsText: e.target.value })}
                   />
                 </div>
+              ) : null}
+              {draft.type === 'IMAGE' ? (
+                <p className="sm:col-span-2 text-xs text-slate-500">
+                  {isAr
+                    ? 'حقل صورة: المتدرّب يرفع صورة أثناء التسجيل (JPEG/PNG/WEBP، حتى 5MB).'
+                    : 'Image field: the registrant uploads a photo during registration (JPEG/PNG/WEBP, up to 5MB).'}
+                </p>
               ) : null}
             </div>
             <div className="admin-popup-foot">

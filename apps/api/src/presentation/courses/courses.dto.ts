@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -95,9 +96,9 @@ export class CreateCourseDto {
   @Min(0)
   price?: number;
 
-  @ApiPropertyOptional({ example: 'IQD' })
+  @ApiPropertyOptional({ example: 'USD', description: 'Course currency (USD only)' })
   @IsOptional()
-  @IsString()
+  @IsIn(['USD'])
   currency?: string;
 
   @ApiPropertyOptional()
@@ -218,9 +219,9 @@ export class UpdateCourseDto {
   @Min(0)
   price?: number | null;
 
-  @ApiPropertyOptional({ example: 'IQD' })
+  @ApiPropertyOptional({ example: 'USD', description: 'Course currency (USD only)' })
   @IsOptional()
-  @IsString()
+  @IsIn(['USD'])
   currency?: string;
 
   @ApiPropertyOptional()

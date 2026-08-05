@@ -71,7 +71,7 @@ const LEVEL_LABEL: Record<string, { ar: string; en: string }> = {
 function formatPrice(price: number | null | undefined, currency: string | null | undefined, locale: 'ar' | 'en') {
   if (price == null) return null;
   const amount = price.toLocaleString(locale === 'ar' ? 'ar-IQ' : 'en-US');
-  if ((currency || 'IQD') === 'USD') return locale === 'ar' ? `${amount} $` : `$${amount}`;
+  if ((currency || 'USD') === 'USD') return locale === 'ar' ? `${amount} $` : `$${amount}`;
   return locale === 'ar' ? `${amount} د.ع` : `${amount} IQD`;
 }
 
@@ -745,7 +745,7 @@ export class ChatBotService {
     const items = await this.prisma.chatBotQa.findMany({
       where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-      take: 3,
+      take: 24,
       select: { questionAr: true, questionEn: true },
     });
     const shortLabel = (value: string, max = 36) => {
@@ -776,14 +776,29 @@ export class ChatBotService {
         ? ['Our workshops', 'Our instructors']
         : ['الورش القادمة', 'المدربين'];
     const faqPrompts = items.map((i) => (locale === 'en' ? i.questionEn : i.questionAr));
+    const allPrompts = [
+      ...listPrompts,
+      ...coursePrompts,
+      ...workshopPrompts,
+      ...instructorPrompts,
+      ...faqPrompts,
+    ];
+    const seen = new Set<string>();
+    const quickPrompts: string[] = [];
+    for (const prompt of allPrompts) {
+      const label = prompt?.trim();
+      if (!label) continue;
+      const dedupeKey = normalizeText(label);
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      quickPrompts.push(label);
+      if (quickPrompts.length >= 20) break;
+    }
     return {
       welcome: locale === 'en' ? settings.welcomeEn : settings.welcomeAr,
       goodbye: locale === 'en' ? settings.goodbyeEn : settings.goodbyeAr,
       outOfScope: locale === 'en' ? settings.outOfScopeEn : settings.outOfScopeAr,
-      quickPrompts: [...listPrompts, ...coursePrompts, ...workshopPrompts, ...instructorPrompts, ...faqPrompts].slice(
-        0,
-        6,
-      ),
+      quickPrompts,
     };
   }
 

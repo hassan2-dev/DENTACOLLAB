@@ -23,7 +23,7 @@ const levelLabel: Record<string, Record<string, string>> = {
   en: { STUDENTS: 'Students', BASIC: 'Basic', ADVANCED: 'Advanced' },
 };
 
-function formatPrice(price?: number | null, currency = 'IQD', isAr = true) {
+function formatPrice(price?: number | null, currency = 'USD', isAr = true) {
   if (price == null) return null;
   const amount = price.toLocaleString(isAr ? 'ar-IQ' : 'en-US');
   if (currency === 'USD') return isAr ? `${amount} $` : `$${amount}`;
@@ -89,9 +89,9 @@ export function CoursesPage() {
                     {course.title}
                   </h2>
                   <p className="mt-2 line-clamp-3 text-sm leading-7 text-slate-500 dark:text-slate-400">{course.description}</p>
-                  {formatPrice(course.price, course.currency || 'IQD', isAr) ? (
+                  {formatPrice(course.price, course.currency || 'USD', isAr) ? (
                     <p className="mt-4 text-base font-black text-[#101c38] dark:text-white">
-                      {formatPrice(course.price, course.currency || 'IQD', isAr)}
+                      {formatPrice(course.price, course.currency || 'USD', isAr)}
                     </p>
                   ) : null}
                 </div>

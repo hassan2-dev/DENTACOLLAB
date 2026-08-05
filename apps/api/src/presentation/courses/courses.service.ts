@@ -198,6 +198,7 @@ export class CoursesService {
     const course = await this.prisma.course.create({
       data: {
         ...data,
+        currency: 'USD',
         registrationStartsAt: parseOptionalDate(registrationStartsAt) ?? undefined,
         registrationEndsAt: parseOptionalDate(registrationEndsAt) ?? undefined,
         instructors: instructorIds?.length
@@ -236,6 +237,7 @@ export class CoursesService {
       where: { id },
       data: {
         ...data,
+        currency: 'USD',
         ...(registrationStartsAt !== undefined
           ? { registrationStartsAt: parseOptionalDate(registrationStartsAt) }
           : {}),

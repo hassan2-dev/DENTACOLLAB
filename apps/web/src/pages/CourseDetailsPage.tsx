@@ -65,7 +65,7 @@ const levelLabel: Record<string, Record<string, string>> = {
   en: { STUDENTS: 'Students', BASIC: 'Basic', ADVANCED: 'Advanced' },
 };
 
-function formatPrice(price?: number | null, currency = 'IQD', isAr = true) {
+function formatPrice(price?: number | null, currency = 'USD', isAr = true) {
   if (price == null) return null;
   const amount = price.toLocaleString(isAr ? 'ar-IQ' : 'en-US');
   if (currency === 'USD') return isAr ? `${amount} $` : `$${amount}`;
@@ -348,7 +348,7 @@ export function CourseDetailsPage() {
             [
               '◎',
               copy.price,
-              formatPrice(course.price, course.currency || 'IQD', isAr) || copy.contactForPrice,
+              formatPrice(course.price, course.currency || 'USD', isAr) || copy.contactForPrice,
             ],
           ].map(([icon, label, value]) => (
             <div key={label} className="flex items-start justify-center gap-2 px-2 py-3 text-start sm:items-center sm:gap-3 sm:px-3">
