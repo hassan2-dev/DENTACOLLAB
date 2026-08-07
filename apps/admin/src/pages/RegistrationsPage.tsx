@@ -26,6 +26,7 @@ type FormField = {
   labelAr: string;
   labelEn: string;
   sortOrder: number;
+  type?: string;
 };
 
 const STATUSES = ['NEW', 'CONTACTED', 'CONFIRMED', 'REJECTED', 'COMPLETED'] as const;
@@ -65,7 +66,7 @@ function buildDetailRows(
   reg: Registration,
   fields: FormField[] | undefined,
   ar: boolean,
-): Array<{ key: string; label: string; value: string }> {
+): Array<{ key: string; label: string; value: string; type?: string }> {
   const answers: Record<string, string> =
     reg.answers && Object.keys(reg.answers).length
       ? { ...reg.answers }
@@ -103,11 +104,15 @@ function buildDetailRows(
   }
 
   return orderedKeys
-    .map((key) => ({
-      key,
-      label: labelFor(key),
-      value: (answers[key] || '').trim(),
-    }))
+    .map((key) => {
+      const field = fields?.find((f) => f.key === key);
+      return {
+        key,
+        label: labelFor(key),
+        value: (answers[key] || '').trim(),
+        type: field?.type,
+      };
+    })
     .filter((row) => row.value);
 }
 
@@ -312,7 +317,19 @@ export function RegistrationsPage() {
                   {detailRows.map((row) => (
                     <div key={row.key} className="reg-detail-row">
                       <dt>{row.label}</dt>
-                      <dd>{row.value}</dd>
+                      <dd>
+                        {row.type === 'IMAGE' || /^https?:\/\/.+\.(jpe?g|png|webp|gif)(\?|$)/i.test(row.value) ? (
+                          <a href={row.value} target="_blank" rel="noreferrer">
+                            <img
+                              src={row.value}
+                              alt={row.label}
+                              style={{ maxWidth: 160, maxHeight: 160, borderRadius: 12, objectFit: 'cover' }}
+                            />
+                          </a>
+                        ) : (
+                          row.value
+                        )}
+                      </dd>
                     </div>
                   ))}
                 </dl>

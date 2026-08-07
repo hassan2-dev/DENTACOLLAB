@@ -14,9 +14,12 @@ import {
   Put,
   Query,
   Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { FormFieldType, RegistrationStatus, UserRole } from '@prisma/client';
 import {
   IsArray,
@@ -32,8 +35,10 @@ import {
 import { Type } from 'class-transformer';
 import type { Response } from 'express';
 import * as ExcelJS from 'exceljs';
+import { memoryStorage } from 'multer';
 import { PublishStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { StorageService } from '../../infrastructure/storage/storage.service';
 import { JwtAuthGuard, Public, Roles, RolesGuard } from '../auth/guards';
 import { DEFAULT_COURSE_FORM_FIELDS, slugifyFieldKey } from './form-field.defaults';
 import { isRegistrationOpen } from '../../common/registration-window';
@@ -330,6 +335,11 @@ export class RegistrationsService {
           throw new BadRequestException(`Invalid email for field: ${field.key}`);
         }
       }
+      if (field.type === FormFieldType.IMAGE && value) {
+        if (!/^https?:\/\/.+/i.test(value)) {
+          throw new BadRequestException(`Invalid image URL for field: ${field.key}`);
+        }
+      }
       answers[field.key] = value;
     }
 
@@ -443,7 +453,38 @@ export class RegistrationsService {
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class RegistrationsController {
-  constructor(private readonly service: RegistrationsService) {}
+  constructor(
+    private readonly service: RegistrationsService,
+    private readonly storage: StorageService,
+  ) {}
+
+  @Public()
+  @Post('registrations/upload-image')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+      required: ['file'],
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('File required');
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowed.includes(file.mimetype)) {
+      throw new BadRequestException('Only JPEG, PNG, WEBP, or GIF images are allowed');
+    }
+    const uploaded = await this.storage.upload(file, 'registrations');
+    return { url: uploaded.url, key: uploaded.key };
+  }
 
   @Public()
   @Get('courses/:courseId/form-fields')

@@ -552,7 +552,7 @@ export function SettingsAdminPage() {
     resend: { apiKey: '', fromEmail: '' },
     r2: { endpoint: '', accessKeyId: '', secretAccessKey: '', bucket: '', publicUrl: '' },
     openai: { apiKey: '' },
-    currency: { defaultCurrency: 'IQD', taxPercent: '0' },
+    currency: { defaultCurrency: 'USD', taxPercent: '0' },
   });
 
   const query = useQuery({
@@ -609,7 +609,7 @@ export function SettingsAdminPage() {
         apiKey: maskIfSecret(asString(openai.apiKey), true),
       },
       currency: {
-        defaultCurrency: asString(currency.defaultCurrency) || 'IQD',
+        defaultCurrency: asString(currency.defaultCurrency) || 'USD',
         taxPercent: asString(currency.taxPercent ?? '0'),
       },
     });
@@ -769,7 +769,6 @@ export function SettingsAdminPage() {
                 value={asString(form.currency.defaultCurrency)}
                 onChange={(e) => setField('currency', 'defaultCurrency', e.target.value)}
               >
-                <option value="IQD">IQD</option>
                 <option value="USD">USD</option>
               </Select>
               <Input

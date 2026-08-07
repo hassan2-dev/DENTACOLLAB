@@ -932,6 +932,9 @@ async function main() {
   const { seedPaymentChatbotQas } = await import('./seed-chatbot-payments');
   await seedPaymentChatbotQas(prisma);
 
+  const { seedExoplanChatbotQas } = await import('./seed-chatbot-exoplan');
+  await seedExoplanChatbotQas(prisma);
+
   await prisma.knowledgeCategory.create({
     data: {
       name: 'عام',

@@ -121,6 +121,11 @@ export class PaymentsService {
           throw new BadRequestException(`Invalid email for field: ${field.key}`);
         }
       }
+      if (field.type === FormFieldType.IMAGE && value) {
+        if (!/^https?:\/\/.+/i.test(value)) {
+          throw new BadRequestException(`Invalid image URL for field: ${field.key}`);
+        }
+      }
       answers[field.key] = value;
     }
 

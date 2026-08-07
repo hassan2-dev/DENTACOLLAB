@@ -13,6 +13,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
     "prisma:seed:payments-chat": "ts-node --transpile-only prisma/seed-chatbot-payments.ts",
+    "prisma:seed:exoplan-chat": "ts-node --transpile-only prisma/seed-chatbot-exoplan.ts",
     "prisma:studio": "prisma studio"
   },
   "dependencies": {

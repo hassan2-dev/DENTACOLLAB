@@ -156,7 +156,7 @@ model Course {
   duration      String
   level         CourseLevel
   price         Int?
-  currency      String               @default("IQD")
+  currency      String               @default("USD")
   certificate          String?       @db.Text
   registrationFormUrl  String?
   registrationStartsAt DateTime?
@@ -189,6 +189,7 @@ enum FormFieldType {
   PHONE
   NUMBER
   SELECT
+  IMAGE
 }
 
 model CourseFormField {
