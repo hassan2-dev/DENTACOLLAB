@@ -25,6 +25,7 @@ import { PaymentsService } from './payments.service';
 import {
   CreateCheckoutSessionDto,
   CreateCouponDto,
+  MarkPaidManuallyDto,
   TrackFunnelDto,
   ValidateCouponDto,
 } from './payments.dto';
@@ -161,6 +162,27 @@ export class PaymentsController {
   @Get('invoice/:id')
   invoice(@Param('id') id: string) {
     return this.payments.getInvoice(id);
+  }
+
+  @ApiBearerAuth()
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @Post(':id/mark-paid')
+  async markPaid(
+    @Param('id') id: string,
+    @Body() dto: MarkPaidManuallyDto,
+    @Req() req: Request & { user?: { id?: string; fullName?: string; email?: string } },
+  ) {
+    const name = req.user?.fullName || req.user?.email || 'Admin';
+    const result = await this.payments.markPaidManually(id, dto.recipientName, name);
+    await this.audit.log({
+      userId: req.user?.id,
+      userName: name,
+      action: 'Marked Payment Paid Manually',
+      entity: 'Payment',
+      entityId: id,
+      details: `${result.invoiceNumber} · received by ${dto.recipientName.trim()}`,
+    });
+    return result;
   }
 
   @ApiBearerAuth()

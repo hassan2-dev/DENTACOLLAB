@@ -270,8 +270,8 @@ export function HomePage() {
             </h2>
             <p className="mt-3 text-sm leading-7 text-slate-500 dark:text-slate-400">
               {isAr
-                ? 'اختر: طقم أسنان كامل، قوس أسنان، أو زرعة — موديلات حقيقية قابلة للتدوير والتكبير.'
-                : 'Choose a full denture, a dental arch, or an implant — real models you can orbit and zoom.'}
+                ? 'استكشف الدليل الجراحي لزراعة الأسنان، قوس الأسنان، أو الزرعة — نماذج ثلاثية الأبعاد قابلة للتدوير والتكبير والتحريك.'
+                : 'Explore a Surgical Guide, dental arch, or implant — interactive 3D models you can orbit, zoom, and pan.'}
             </p>
           </div>
           <div className="relative h-[520px] sm:h-[600px] lg:h-[680px]">

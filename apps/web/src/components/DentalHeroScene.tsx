@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
-type Mode = 'implant' | 'denture' | 'teeth';
+const SurgicalGuideViewer = lazy(() =>
+  import('./SurgicalGuideViewer').then((m) => ({ default: m.SurgicalGuideViewer })),
+);
+
+type Mode = 'guide' | 'implant' | 'teeth';
 
 type DentalHeroSceneProps = {
   isAr?: boolean;
@@ -9,13 +13,12 @@ type DentalHeroSceneProps = {
 };
 
 /**
- * Real dental models via Sketchfab embeds.
- * - Implant: Implante Dental (CC BY) — drandrescordova
- * - Denture: Very Good Full Denture — ivoclar.vivadent (full set with teeth)
- * - Teeth: Upper jaw teeth anatomy — elmagnifico
+ * Interactive dental models:
+ * - Surgical Guide: local R3F / Three.js viewer (rotate, zoom, pan)
+ * - Implant / Teeth: Sketchfab embeds
  */
-const MODELS: Record<
-  Mode,
+const SKETCHFAB: Record<
+  Exclude<Mode, 'guide'>,
   {
     uid: string;
     titleAr: string;
@@ -37,16 +40,6 @@ const MODELS: Record<
     creditUrl: 'https://sketchfab.com/3d-models/implante-dental-ede1a07475db4236b43a6cd168d1225d',
     license: 'CC BY',
   },
-  denture: {
-    uid: '3c23527760b74021942e7c144849dea4',
-    titleAr: 'طقم أسنان كامل',
-    titleEn: 'Full denture set',
-    bodyAr: 'طقم كامل بأسنان ظاهرة على قاعدة وردية — دوّر النموذج من كل الزوايا.',
-    bodyEn: 'A full denture with visible teeth on a pink base — orbit from every angle.',
-    credit: 'Ivoclar Vivadent',
-    creditUrl: 'https://sketchfab.com/3d-models/very-good-full-denture-3c23527760b74021942e7c144849dea4',
-    license: 'Sketchfab',
-  },
   teeth: {
     uid: '35b057aa657d4e48989c0c6af657f41d',
     titleAr: 'قوس الأسنان',
@@ -57,6 +50,15 @@ const MODELS: Record<
     creditUrl: 'https://sketchfab.com/3d-models/upper-jaw-teeth-anatomy-35b057aa657d4e48989c0c6af657f41d',
     license: 'Sketchfab',
   },
+};
+
+const GUIDE_COPY = {
+  titleAr: 'دليل جراحي لزراعة الأسنان',
+  titleEn: 'Surgical Guide',
+  bodyAr:
+    'نموذج ثلاثي الأبعاد لدليل جراحي (Surgical Template) — دوّره 360°، قرّب وبعّد، وحرّك المنظور كما تريد.',
+  bodyEn:
+    'An interactive Surgical Guide (Surgical Template) — orbit 360°, zoom, and pan to inspect every angle.',
 };
 
 function SketchfabFrame({ uid, title }: { uid: string; title: string }) {
@@ -89,7 +91,6 @@ function SketchfabFrame({ uid, title }: { uid: string; title: string }) {
         loading="lazy"
         referrerPolicy="strict-origin-when-cross-origin"
       />
-      {/* Cover Sketchfab buy ($) + share chrome (always physical top-right inside iframe) */}
       <div
         className="pointer-events-auto absolute right-0 top-0 z-20 h-14 w-[7.5rem] rounded-bl-2xl bg-[#1b1b1b]"
         aria-hidden
@@ -98,19 +99,45 @@ function SketchfabFrame({ uid, title }: { uid: string; title: string }) {
   );
 }
 
+function ViewerFallback({ isAr }: { isAr: boolean }) {
+  return (
+    <div className="grid h-full place-items-center bg-[#0b1528]" role="status" aria-live="polite">
+      <p className="text-xs font-semibold text-white/70">
+        {isAr ? 'تحميل الدليل الجراحي...' : 'Loading Surgical Guide...'}
+      </p>
+    </div>
+  );
+}
+
 export function DentalHeroScene({ isAr = true, className = '' }: DentalHeroSceneProps) {
-  const [mode, setMode] = useState<Mode>('denture');
-  const model = MODELS[mode];
+  const [mode, setMode] = useState<Mode>('guide');
 
   const tabs: { id: Mode; label: string }[] = [
-    { id: 'denture', label: isAr ? 'طقم أسنان' : 'Denture' },
+    { id: 'guide', label: isAr ? 'دليل جراحي' : 'Surgical Guide' },
     { id: 'teeth', label: isAr ? 'الأسنان' : 'Teeth' },
     { id: 'implant', label: isAr ? 'زرعة' : 'Implant' },
   ];
 
+  const title =
+    mode === 'guide'
+      ? isAr
+        ? GUIDE_COPY.titleAr
+        : GUIDE_COPY.titleEn
+      : isAr
+        ? SKETCHFAB[mode].titleAr
+        : SKETCHFAB[mode].titleEn;
+
+  const body =
+    mode === 'guide'
+      ? isAr
+        ? GUIDE_COPY.bodyAr
+        : GUIDE_COPY.bodyEn
+      : isAr
+        ? SKETCHFAB[mode].bodyAr
+        : SKETCHFAB[mode].bodyEn;
+
   return (
     <div className={`flex h-full min-h-[340px] flex-col gap-3 sm:min-h-[420px] md:min-h-full ${className}`}>
-      {/* Tabs outside the iframe — always clickable */}
       <div className="flex flex-wrap items-center gap-2">
         <div
           role="tablist"
@@ -149,31 +176,41 @@ export function DentalHeroScene({ isAr = true, className = '' }: DentalHeroScene
             transition={{ duration: 0.2 }}
             className="absolute inset-0"
           >
-            <SketchfabFrame uid={model.uid} title={isAr ? model.titleAr : model.titleEn} />
+            {mode === 'guide' ? (
+              <Suspense fallback={<ViewerFallback isAr={isAr} />}>
+                <SurgicalGuideViewer className="h-full" />
+              </Suspense>
+            ) : (
+              <SketchfabFrame uid={SKETCHFAB[mode].uid} title={title} />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-[#f7fafc] px-4 py-3 text-start dark:border-[#19314f] dark:bg-[#081426]">
-        <p className="text-sm font-bold text-[#101c38] dark:text-white">
-          {isAr ? model.titleAr : model.titleEn}
-        </p>
-        <p className="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
-          {isAr ? model.bodyAr : model.bodyEn}
-        </p>
-        <p className="mt-2 text-[11px] text-slate-400">
-          {isAr ? 'المصدر: ' : 'Source: '}
-          <a
-            href={model.creditUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold text-[#1789a2] underline-offset-2 hover:underline"
-          >
-            {model.credit}
-          </a>
-          {' · '}
-          {model.license}
-        </p>
+        <p className="text-sm font-bold text-[#101c38] dark:text-white">{title}</p>
+        <p className="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">{body}</p>
+        {mode !== 'guide' ? (
+          <p className="mt-2 text-[11px] text-slate-400">
+            {isAr ? 'المصدر: ' : 'Source: '}
+            <a
+              href={SKETCHFAB[mode].creditUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-[#1789a2] underline-offset-2 hover:underline"
+            >
+              {SKETCHFAB[mode].credit}
+            </a>
+            {' · '}
+            {SKETCHFAB[mode].license}
+          </p>
+        ) : (
+          <p className="mt-2 text-[11px] text-slate-400">
+            {isAr
+              ? 'Surgical Guide (Surgical Template) · تفاعل مباشر داخل الموقع'
+              : 'Surgical Guide (Surgical Template) · interactive in-page 3D'}
+          </p>
+        )}
       </div>
     </div>
   );

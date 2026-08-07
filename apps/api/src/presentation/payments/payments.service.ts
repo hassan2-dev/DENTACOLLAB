@@ -375,8 +375,30 @@ export class PaymentsService {
     if (payment.paymentStatus !== PaymentStatus.PAID) {
       throw new BadRequestException('Only paid payments can be refunded');
     }
-    if (!payment.stripePaymentIntentId) {
-      throw new BadRequestException('Missing Stripe payment intent');
+
+    // Manual / cash payments: mark refunded without Stripe
+    if (payment.paidManually || !payment.stripePaymentIntentId) {
+      const updated = await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          paymentStatus: PaymentStatus.REFUNDED,
+          refundedAt: new Date(),
+        },
+        include: {
+          course: { select: { id: true, title: true, slug: true } },
+          logs: { orderBy: { createdAt: 'asc' } },
+        },
+      });
+      await this.addLog(payment.id, PaymentStatus.REFUNDED, 'REFUNDED_MANUAL', {
+        by: actorName,
+        receivedByName: payment.receivedByName,
+      });
+      await this.notify(
+        'Payment Refunded',
+        `${payment.invoiceNumber} manually refunded by ${actorName}`,
+        `/payments`,
+      );
+      return updated;
     }
 
     try {
@@ -414,6 +436,196 @@ export class PaymentsService {
       });
       throw new BadRequestException(`Refund failed: ${(error as Error).message}`);
     }
+  }
+
+  /**
+   * Admin: mark pending/failed/cancelled payment as paid manually (cash / bank / in-person).
+   * Runs the same registration + invoice + email side effects as Stripe PAID.
+   */
+  async markPaidManually(
+    paymentId: string,
+    recipientName: string,
+    actorName = 'Admin',
+  ) {
+    const name = recipientName.trim();
+    if (name.length < 2) {
+      throw new BadRequestException('Recipient name is required');
+    }
+
+    const payment = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: { course: true, registration: true },
+    });
+    if (!payment) throw new NotFoundException('Payment not found');
+
+    if (payment.paymentStatus === PaymentStatus.PAID) {
+      throw new BadRequestException('Payment is already paid');
+    }
+    if (payment.paymentStatus === PaymentStatus.REFUNDED) {
+      throw new BadRequestException('Refunded payments cannot be marked as paid');
+    }
+
+    return this.finalizeAsPaid(payment, {
+      paidManually: true,
+      receivedByName: name,
+      actorName,
+      verifyUrl: `${this.webBase()}/payments/success?payment_id=${payment.id}`,
+      logEvent: 'MANUALLY_PAID',
+      logPayload: { recipientName: name, by: actorName },
+    });
+  }
+
+  private async finalizeAsPaid(
+    payment: {
+      id: string;
+      courseId: string;
+      registrationId: string | null;
+      registrationNumber: string | null;
+      couponId: string | null;
+      answers: unknown;
+      fullName: string;
+      phone: string;
+      email: string;
+      invoiceNumber: string;
+      amount: number;
+      originalAmount: number | null;
+      discountAmount: number;
+      currency: string;
+      metadata: unknown;
+      course: { title: string };
+    },
+    opts: {
+      stripeSessionId?: string | null;
+      paymentIntentId?: string | null;
+      paidManually?: boolean;
+      receivedByName?: string | null;
+      actorName?: string;
+      verifyUrl: string;
+      logEvent: string;
+      logPayload?: Record<string, unknown>;
+    },
+  ) {
+    const answers = (payment.answers as Record<string, string> | null) || {};
+    const registrationNumber = payment.registrationNumber || (await this.nextRegistrationNumber());
+
+    let registrationId = payment.registrationId;
+    if (!registrationId) {
+      const registration = await this.prisma.courseRegistration.create({
+        data: {
+          courseId: payment.courseId,
+          fullName: payment.fullName,
+          phone: payment.phone,
+          email: payment.email,
+          city: answers.city || '',
+          occupation: answers.occupation || '',
+          experience: answers.experience || '',
+          notes: answers.notes || null,
+          answers,
+          status: RegistrationStatus.CONFIRMED,
+        },
+      });
+      registrationId = registration.id;
+    } else {
+      await this.prisma.courseRegistration.update({
+        where: { id: registrationId },
+        data: { status: RegistrationStatus.CONFIRMED },
+      });
+    }
+
+    if (payment.couponId) {
+      await this.prisma.courseCoupon.update({
+        where: { id: payment.couponId },
+        data: { usedCount: { increment: 1 } },
+      });
+    }
+
+    await this.addLog(payment.id, PaymentStatus.PAID, opts.logEvent, opts.logPayload);
+    await this.trackFunnel(payment.courseId, FunnelEventType.PAID);
+
+    let invoicePdfUrl: string | null = null;
+    let invoicePdfKey: string | null = null;
+    let invoiceGeneratedAt: Date | null = null;
+    try {
+      const uploaded = await this.invoices.generateAndUpload({
+        invoiceNumber: payment.invoiceNumber,
+        registrationNumber,
+        studentName: payment.fullName,
+        courseTitle: payment.course.title,
+        amount: payment.amount,
+        originalAmount: payment.originalAmount,
+        discountAmount: payment.discountAmount,
+        currency: payment.currency,
+        paymentDate: new Date(),
+        paymentStatus: 'PAID',
+        email: payment.email,
+        phone: payment.phone,
+        verifyUrl: opts.verifyUrl,
+      });
+      invoicePdfUrl = uploaded.url;
+      invoicePdfKey = uploaded.key;
+      invoiceGeneratedAt = new Date();
+      await this.addLog(payment.id, PaymentStatus.PAID, 'INVOICE_GENERATED', { url: invoicePdfUrl });
+    } catch (error) {
+      this.logger.error('Failed to generate invoice PDF', error as Error);
+      await this.addLog(payment.id, PaymentStatus.PAID, 'INVOICE_FAILED', {
+        message: (error as Error).message,
+      });
+    }
+
+    const updated = await this.prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        paymentStatus: PaymentStatus.PAID,
+        registrationId,
+        registrationNumber,
+        stripePaymentIntentId: opts.paymentIntentId ?? undefined,
+        stripeSessionId: opts.stripeSessionId ?? undefined,
+        invoicePdfUrl,
+        invoicePdfKey,
+        invoiceGeneratedAt,
+        paidAt: new Date(),
+        paidManually: Boolean(opts.paidManually),
+        receivedByName: opts.receivedByName ?? null,
+      },
+      include: { course: true },
+    });
+
+    const notifyBody = opts.paidManually
+      ? `${payment.fullName} paid manually (${opts.receivedByName}) — ${payment.amount} ${payment.currency} — ${payment.invoiceNumber}`
+      : `${payment.fullName} paid ${payment.amount} ${payment.currency} — ${payment.invoiceNumber}`;
+
+    await this.notify('Payment Received', notifyBody, '/payments');
+
+    const locale =
+      (payment.metadata as { locale?: string } | null)?.locale === 'en' ? 'en' : 'ar';
+    const emailPayload = {
+      to: payment.email,
+      fullName: payment.fullName,
+      courseTitle: payment.course.title,
+      invoiceNumber: payment.invoiceNumber,
+      amount: payment.amount,
+      currency: payment.currency,
+      invoicePdfUrl,
+      locale: locale as 'ar' | 'en',
+    };
+
+    const emailResults = await Promise.allSettled([
+      this.email.sendRegistrationConfirmation(emailPayload),
+      this.email.sendPaymentConfirmation(emailPayload),
+    ]);
+    const emailFailed = emailResults.some((r) => r.status === 'rejected');
+    if (emailFailed) {
+      await this.addLog(payment.id, PaymentStatus.PAID, 'EMAIL_FAILED');
+      await this.notify('Email Failed', `Failed sending emails for ${payment.invoiceNumber}`, '/payments');
+    } else {
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { emailSentAt: new Date() },
+      });
+      await this.addLog(payment.id, PaymentStatus.PAID, 'EMAIL_SENT');
+    }
+
+    return updated;
   }
 
   async handleWebhook(rawBody: Buffer, signature: string) {
@@ -502,120 +714,14 @@ export class PaymentsService {
         ? session.payment_intent
         : session.payment_intent?.id || null;
 
-    const answers = (payment.answers as Record<string, string> | null) || {};
-    const registrationNumber = payment.registrationNumber || (await this.nextRegistrationNumber());
-
-    let registrationId = payment.registrationId;
-    if (!registrationId) {
-      const registration = await this.prisma.courseRegistration.create({
-        data: {
-          courseId: payment.courseId,
-          fullName: payment.fullName,
-          phone: payment.phone,
-          email: payment.email,
-          city: answers.city || '',
-          occupation: answers.occupation || '',
-          experience: answers.experience || '',
-          notes: answers.notes || null,
-          answers,
-          status: RegistrationStatus.CONFIRMED,
-        },
-      });
-      registrationId = registration.id;
-    }
-
-    if (payment.couponId) {
-      await this.prisma.courseCoupon.update({
-        where: { id: payment.couponId },
-        data: { usedCount: { increment: 1 } },
-      });
-    }
-
-    await this.addLog(payment.id, PaymentStatus.PAID, 'PAID', { sessionId: session.id });
-    await this.trackFunnel(payment.courseId, FunnelEventType.PAID);
-
-    let invoicePdfUrl: string | null = null;
-    let invoicePdfKey: string | null = null;
-    let invoiceGeneratedAt: Date | null = null;
-    try {
-      const uploaded = await this.invoices.generateAndUpload({
-        invoiceNumber: payment.invoiceNumber,
-        registrationNumber,
-        studentName: payment.fullName,
-        courseTitle: payment.course.title,
-        amount: payment.amount,
-        originalAmount: payment.originalAmount,
-        discountAmount: payment.discountAmount,
-        currency: payment.currency,
-        paymentDate: new Date(),
-        paymentStatus: 'PAID',
-        email: payment.email,
-        phone: payment.phone,
-        verifyUrl: `${this.webBase()}/payments/success?session_id=${session.id}`,
-      });
-      invoicePdfUrl = uploaded.url;
-      invoicePdfKey = uploaded.key;
-      invoiceGeneratedAt = new Date();
-      await this.addLog(payment.id, PaymentStatus.PAID, 'INVOICE_GENERATED', { url: invoicePdfUrl });
-    } catch (error) {
-      this.logger.error('Failed to generate invoice PDF', error as Error);
-      await this.addLog(payment.id, PaymentStatus.PAID, 'INVOICE_FAILED', {
-        message: (error as Error).message,
-      });
-    }
-
-    const updated = await this.prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        paymentStatus: PaymentStatus.PAID,
-        registrationId,
-        registrationNumber,
-        stripePaymentIntentId: paymentIntentId,
-        stripeSessionId: session.id,
-        invoicePdfUrl,
-        invoicePdfKey,
-        invoiceGeneratedAt,
-        paidAt: new Date(),
-      },
-      include: { course: true },
+    return this.finalizeAsPaid(payment, {
+      stripeSessionId: session.id,
+      paymentIntentId,
+      paidManually: false,
+      verifyUrl: `${this.webBase()}/payments/success?session_id=${session.id}`,
+      logEvent: 'PAID',
+      logPayload: { sessionId: session.id },
     });
-
-    await this.notify(
-      'Payment Received',
-      `${payment.fullName} paid ${payment.amount} ${payment.currency} — ${payment.invoiceNumber}`,
-      '/payments',
-    );
-
-    const locale =
-      (payment.metadata as { locale?: string } | null)?.locale === 'en' ? 'en' : 'ar';
-    const emailPayload = {
-      to: payment.email,
-      fullName: payment.fullName,
-      courseTitle: payment.course.title,
-      invoiceNumber: payment.invoiceNumber,
-      amount: payment.amount,
-      currency: payment.currency,
-      invoicePdfUrl,
-      locale: locale as 'ar' | 'en',
-    };
-
-    const emailResults = await Promise.allSettled([
-      this.email.sendRegistrationConfirmation(emailPayload),
-      this.email.sendPaymentConfirmation(emailPayload),
-    ]);
-    const emailFailed = emailResults.some((r) => r.status === 'rejected');
-    if (emailFailed) {
-      await this.addLog(payment.id, PaymentStatus.PAID, 'EMAIL_FAILED');
-      await this.notify('Email Failed', `Failed sending emails for ${payment.invoiceNumber}`, '/payments');
-    } else {
-      await this.prisma.payment.update({
-        where: { id: payment.id },
-        data: { emailSentAt: new Date() },
-      });
-      await this.addLog(payment.id, PaymentStatus.PAID, 'EMAIL_SENT');
-    }
-
-    return updated;
   }
 
   async markCancelled(paymentId: string) {
@@ -760,6 +866,8 @@ export class PaymentsService {
       { header: 'Currency', key: 'currency', width: 10 },
       { header: 'Status', key: 'status', width: 12 },
       { header: 'Provider', key: 'provider', width: 12 },
+      { header: 'Manual', key: 'paidManually', width: 10 },
+      { header: 'Received By', key: 'receivedByName', width: 22 },
       { header: 'Paid At', key: 'paidAt', width: 22 },
       { header: 'Created At', key: 'createdAt', width: 22 },
       { header: 'Invoice PDF', key: 'invoicePdfUrl', width: 40 },
@@ -776,6 +884,8 @@ export class PaymentsService {
         currency: row.currency,
         status: row.paymentStatus,
         provider: row.provider,
+        paidManually: row.paidManually ? 'Yes' : 'No',
+        receivedByName: row.receivedByName || '',
         paidAt: row.paidAt?.toISOString() || '',
         createdAt: row.createdAt.toISOString(),
         invoicePdfUrl: row.invoicePdfUrl || '',

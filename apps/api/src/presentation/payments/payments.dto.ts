@@ -111,3 +111,10 @@ export class TrackFunnelDto {
   @IsString()
   sessionId?: string;
 }
+
+export class MarkPaidManuallyDto {
+  @ApiProperty({ description: 'Name of the person who received the cash/manual payment' })
+  @IsString()
+  @MinLength(2)
+  recipientName!: string;
+}

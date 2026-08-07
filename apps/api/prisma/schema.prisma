@@ -318,6 +318,8 @@ model Payment {
   invoicePdfUrl          String?
   invoicePdfKey          String?
   paidAt                 DateTime?
+  paidManually           Boolean            @default(false)
+  receivedByName         String?
   refundedAt             DateTime?
   invoiceGeneratedAt     DateTime?
   emailSentAt            DateTime?

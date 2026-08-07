@@ -19,6 +19,8 @@ type Payment = {
   currency: string;
   paymentStatus: string;
   provider: string;
+  paidManually?: boolean;
+  receivedByName?: string | null;
   stripeSessionId?: string | null;
   stripePaymentIntentId?: string | null;
   invoicePdfUrl?: string | null;
@@ -87,6 +89,7 @@ export function PaymentsAdminPage() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [recipientName, setRecipientName] = useState('');
 
   const query = useQuery({
     queryKey: ['admin-payments', q, status],
@@ -114,6 +117,23 @@ export function PaymentsAdminPage() {
     },
     onError: (err: Error) => {
       notify.error(err.message || (ar ? 'فشل الاسترداد' : 'Refund failed'));
+    },
+  });
+
+  const markPaid = useMutation({
+    mutationFn: ({ id, recipientName: name }: { id: string; recipientName: string }) =>
+      api(`/payments/${id}/mark-paid`, {
+        method: 'POST',
+        body: JSON.stringify({ recipientName: name }),
+      }),
+    onSuccess: () => {
+      setRecipientName('');
+      qc.invalidateQueries({ queryKey: ['admin-payments'] });
+      qc.invalidateQueries({ queryKey: ['admin-payment', selectedId] });
+      notify.success(ar ? 'تم تأكيد الدفع يدوياً' : 'Marked as paid manually');
+    },
+    onError: (err: Error) => {
+      notify.error(err.message || (ar ? 'فشل تأكيد الدفع' : 'Failed to mark as paid'));
     },
   });
 
@@ -155,6 +175,31 @@ export function PaymentsAdminPage() {
     );
     if (ok) refund.mutate(selectedId);
   }
+
+  function confirmMarkPaid() {
+    if (!selectedId || !selected) return;
+    const name = recipientName.trim();
+    if (name.length < 2) {
+      notify.error(ar ? 'أدخل اسم مستلم المبلغ' : 'Enter the recipient name');
+      return;
+    }
+    const ok = window.confirm(
+      ar
+        ? `تأكيد الدفع اليدوي لـ ${selected.invoiceNumber}؟\nالمستلم: ${name}`
+        : `Confirm manual payment for ${selected.invoiceNumber}?\nReceived by: ${name}`,
+    );
+    if (ok) markPaid.mutate({ id: selectedId, recipientName: name });
+  }
+
+  function openPayment(id: string) {
+    setRecipientName('');
+    setSelectedId(id);
+  }
+
+  const canMarkPaid =
+    selected &&
+    selected.paymentStatus !== 'PAID' &&
+    selected.paymentStatus !== 'REFUNDED';
 
   return (
     <div className="admin-page space-y-6">
@@ -239,14 +284,21 @@ export function PaymentsAdminPage() {
                     {formatMoney(row.amount, row.currency, ar)}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`status-chip status-${row.paymentStatus.toLowerCase()}`}>
-                      {STATUS_LABELS[row.paymentStatus as (typeof STATUSES)[number]]?.[ar ? 'ar' : 'en'] ||
-                        row.paymentStatus}
-                    </span>
+                    <div className="flex flex-col items-start gap-1">
+                      <span className={`status-chip status-${row.paymentStatus.toLowerCase()}`}>
+                        {STATUS_LABELS[row.paymentStatus as (typeof STATUSES)[number]]?.[ar ? 'ar' : 'en'] ||
+                          row.paymentStatus}
+                      </span>
+                      {row.paidManually ? (
+                        <span className="text-[10px] font-bold text-[var(--color-ink-muted)]">
+                          {ar ? `يدوي · ${row.receivedByName || '—'}` : `Manual · ${row.receivedByName || '—'}`}
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => setSelectedId(row.id)}>
+                      <Button type="button" variant="outline" size="sm" onClick={() => openPayment(row.id)}>
                         {ar ? 'عرض' : 'View'}
                       </Button>
                       {row.invoicePdfUrl ? (
@@ -313,6 +365,15 @@ export function PaymentsAdminPage() {
                       STATUS_LABELS[selected.paymentStatus as (typeof STATUSES)[number]]?.[ar ? 'ar' : 'en'] ||
                         selected.paymentStatus,
                     ],
+                    [
+                      ar ? 'طريقة الدفع' : 'Payment method',
+                      selected.paidManually
+                        ? ar
+                          ? 'يدوي'
+                          : 'Manual'
+                        : selected.provider,
+                    ],
+                    [ar ? 'مستلم المبلغ' : 'Received by', selected.receivedByName || '—'],
                     [ar ? 'المزوّد' : 'Provider', selected.provider],
                     ['Stripe Session', selected.stripeSessionId || '—'],
                     ['Payment Intent', selected.stripePaymentIntentId || '—'],
@@ -383,6 +444,42 @@ export function PaymentsAdminPage() {
                         </li>
                       ))}
                     </ul>
+                  </section>
+                ) : null}
+
+                {canMarkPaid ? (
+                  <section className="mt-6 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
+                    <h3 className="text-sm font-black">
+                      {ar ? 'تأكيد الدفع يدوياً' : 'Mark as paid manually'}
+                    </h3>
+                    <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+                      {ar
+                        ? 'استخدم هذا الخيار إذا تم استلام المبلغ نقداً أو تحويل بدون بطاقة.'
+                        : 'Use when payment was received in cash or transfer without a card.'}
+                    </p>
+                    <div className="mt-3">
+                      <Input
+                        id="recipient-name"
+                        label={ar ? 'اسم مستلم المبلغ' : 'Received by (recipient name)'}
+                        value={recipientName}
+                        onChange={(e) => setRecipientName(e.target.value)}
+                        placeholder={ar ? 'مثال: أحمد من الاستقبال' : 'e.g. Reception desk'}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      className="mt-3 w-full rounded-full"
+                      disabled={markPaid.isPending || recipientName.trim().length < 2}
+                      onClick={confirmMarkPaid}
+                    >
+                      {markPaid.isPending
+                        ? ar
+                          ? 'جاري التأكيد...'
+                          : 'Confirming...'
+                        : ar
+                          ? 'تم الدفع يدوياً'
+                          : 'Confirm manual payment'}
+                    </Button>
                   </section>
                 ) : null}
 
